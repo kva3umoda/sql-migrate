@@ -15,26 +15,51 @@ import (
 	"time"
 )
 
+// SqlTyper is a type that returns its database type.  Most of the
+// time, the type can just use "database/sql/driver".Valuer; but when
+// it returns nil for its empty value, it needs to implement SqlTyper
+// to have its column type detected properly during table creation.
+type SqlTyper interface {
+	SqlType() driver.Value
+}
+
+// legacySqlTyper prevents breaking clients who depended on the previous
+// SqlTyper interface
+type legacySqlTyper interface {
+	SqlType() driver.Valuer
+}
+
+// for fields that exists in DB table, but not exists in struct
+type dummyField struct{}
+
+// Scan implements the Scanner interface.
+func (nt *dummyField) Scan(value interface{}) error {
+	return nil
+}
+
+var zeroVal reflect.Value
+
 type DialectType string
 
 const (
-	SQLite3   DialectType = "sqlite3"
-	Postgres  DialectType = "postgres"
-	MySQL     DialectType = "mysql"
-	MSSQL     DialectType = "mssql"
-	OCI8      DialectType = "oci8"
-	GoDrOr    DialectType = "godror"
-	Snowflake DialectType = "snowflake"
+	SQLite3    DialectType = "sqlite3"
+	Postgres   DialectType = "postgres"
+	MySQL      DialectType = "mysql"
+	MSSQL      DialectType = "mssql"
+	OCI8       DialectType = "oci8"
+	GoDrOr     DialectType = "godror"
+	Snowflake  DialectType = "snowflake"
+	ClickHouse DialectType = "clickhouse"
 )
 
 var Dialects = map[DialectType]Dialect{
-	SQLite3:   SqliteDialect{},
-	Postgres:  PostgresDialect{},
-	MySQL:     MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
-	MSSQL:     SqlServerDialect{},
-	OCI8:      OracleDialect{},
-	GoDrOr:    OracleDialect{},
-	Snowflake: SnowflakeDialect{},
+	SQLite3:   &SqliteDialect{},
+	Postgres:  &PostgresDialect{},
+	MySQL:     &MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
+	MSSQL:     &SqlServerDialect{},
+	OCI8:      &OracleDialect{},
+	GoDrOr:    &OracleDialect{},
+	Snowflake: &SnowflakeDialect{},
 }
 
 // The Dialect interface encapsulates behaviors that differ across
@@ -48,16 +73,7 @@ type Dialect interface {
 	// table of the given Go Type.  maxsize can be used to switch based on
 	// size.  For example, in MySQL []byte could map to BLOB, MEDIUMBLOB,
 	// or LONGBLOB depending on the maxsize
-	ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string
-
-	// string to append to primary key column definitions
-	AutoIncrStr() string
-
-	// string to bind autoincrement columns to. Empty string will
-	// remove reference to those columns in the INSERT statement.
-	AutoIncrBindValue() string
-
-	AutoIncrInsertSuffix(col *ColumnMap) string
+	ToSqlType(val reflect.Type, maxsize int) string
 
 	// string to append to "create table" statement for vendor specific
 	// table attributes
@@ -96,25 +112,6 @@ type Dialect interface {
 	IfTableNotExists(command, schema, table string) string
 }
 
-// IntegerAutoIncrInserter is implemented by dialects that can perform
-// inserts with automatically incremented integer primary keys.  If
-// the dialect can handle automatic assignment of more than just
-// integers, see TargetedAutoIncrInserter.
-type IntegerAutoIncrInserter interface {
-	InsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error)
-}
-
-// TargetedAutoIncrInserter is implemented by dialects that can
-// perform automatic assignment of any primary key type (i.e. strings
-// for uuids, integers for serials, etc).
-type TargetedAutoIncrInserter interface {
-	// InsertAutoIncrToTarget runs an insert operation and assigns the
-	// automatically generated primary key directly to the passed in
-	// target.  The target should be a pointer to the primary key
-	// field of the value being inserted.
-	InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error
-}
-
 // TargetQueryInserter is implemented by dialects that can perform
 // assignment of integer primary key type by executing a query
 // like "select sequence.currval from dual".
@@ -123,14 +120,6 @@ type TargetQueryInserter interface {
 	// automatically generated primary key retrived by the query
 	// extracted from the GeneratedIdQuery field of the id column.
 	InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target any, params ...any) error
-}
-
-func standardInsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error) {
-	res, err := exec.Exec(insertSql, params...)
-	if err != nil {
-		return 0, err
-	}
-	return res.LastInsertId()
 }
 
 type SqlExecutor interface {
@@ -634,24 +623,6 @@ func insert(m *DbMap, exec SqlExecutor, list ...any) error {
 		if bi.autoIncrIdx > -1 {
 			f := elem.FieldByName(bi.autoIncrFieldName)
 			switch inserter := m.Dialect.(type) {
-			case IntegerAutoIncrInserter:
-				id, err := inserter.InsertAutoIncr(exec, bi.query, bi.args...)
-				if err != nil {
-					return err
-				}
-				k := f.Kind()
-				if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
-					f.SetInt(id)
-				} else if (k == reflect.Uint) || (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
-					f.SetUint(uint64(id))
-				} else {
-					return fmt.Errorf("gorp: cannot set autoincrement value on non-Int field. SQL=%s  autoIncrIdx=%d autoIncrFieldName=%s", bi.query, bi.autoIncrIdx, bi.autoIncrFieldName)
-				}
-			case TargetedAutoIncrInserter:
-				err := inserter.InsertAutoIncrToTarget(exec, bi.query, f.Addr().Interface(), bi.args...)
-				if err != nil {
-					return err
-				}
 			case TargetQueryInserter:
 				var idQuery = table.ColMap(bi.autoIncrFieldName).GeneratedIdQuery
 				if idQuery == "" {

@@ -20,10 +20,10 @@ type SqlServerDialect struct {
 	Version string
 }
 
-func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d *SqlServerDialect) ToSqlType(val reflect.Type, maxsize int) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize)
 	case reflect.Bool:
 		return "bit"
 	case reflect.Int8:
@@ -76,54 +76,36 @@ func (d SqlServerDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bo
 	return fmt.Sprintf("nvarchar(%d)", maxsize)
 }
 
-// Returns auto_increment
-func (d SqlServerDialect) AutoIncrStr() string {
-	return "identity(0,1)"
-}
+func (d *SqlServerDialect) CreateTableSuffix() string { return ";" }
 
-// Empty string removes autoincrement columns from the INSERT statements.
-func (d SqlServerDialect) AutoIncrBindValue() string {
-	return ""
-}
-
-func (d SqlServerDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-	return ""
-}
-
-func (d SqlServerDialect) CreateTableSuffix() string { return ";" }
-
-func (d SqlServerDialect) TruncateClause() string {
+func (d *SqlServerDialect) TruncateClause() string {
 	return "truncate table"
 }
 
 // Returns "?"
-func (d SqlServerDialect) BindVar(i int) string {
+func (d *SqlServerDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error) {
-	return standardInsertAutoIncr(exec, insertSql, params...)
-}
-
-func (d SqlServerDialect) QuoteField(f string) string {
+func (d *SqlServerDialect) QuoteField(f string) string {
 	return "[" + strings.Replace(f, "]", "]]", -1) + "]"
 }
 
-func (d SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
 	return d.QuoteField(schema) + "." + d.QuoteField(table)
 }
 
-func (d SqlServerDialect) QuerySuffix() string { return ";" }
+func (d *SqlServerDialect) QuerySuffix() string { return ";" }
 
-func (d SqlServerDialect) IfSchemaNotExists(command, schema string) string {
+func (d *SqlServerDialect) IfSchemaNotExists(command, schema string) string {
 	s := fmt.Sprintf("if schema_id(N'%s') is null %s", schema, command)
 	return s
 }
 
-func (d SqlServerDialect) IfTableExists(command, schema, table string) string {
+func (d *SqlServerDialect) IfTableExists(command, schema, table string) string {
 	var schema_clause string
 	if strings.TrimSpace(schema) != "" {
 		schema_clause = fmt.Sprintf("%s.", d.QuoteField(schema))
@@ -132,7 +114,7 @@ func (d SqlServerDialect) IfTableExists(command, schema, table string) string {
 	return s
 }
 
-func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string {
+func (d *SqlServerDialect) IfTableNotExists(command, schema, table string) string {
 	var schema_clause string
 	if strings.TrimSpace(schema) != "" {
 		schema_clause = fmt.Sprintf("%s.", schema)
@@ -140,6 +122,3 @@ func (d SqlServerDialect) IfTableNotExists(command, schema, table string) string
 	s := fmt.Sprintf("if object_id('%s%s') is null %s", schema_clause, table, command)
 	return s
 }
-
-func (d SqlServerDialect) CreateIndexSuffix() string { return "" }
-func (d SqlServerDialect) DropIndexSuffix() string   { return "" }

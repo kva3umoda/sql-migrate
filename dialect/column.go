@@ -30,11 +30,10 @@ type ColumnMap struct {
 
 	DefaultValue string
 
-	fieldName  string
-	gotype     reflect.Type
-	isPK       bool
-	isAutoIncr bool
-	isNotNull  bool
+	fieldName string
+	gotype    reflect.Type
+	isPK      bool
+	isNotNull bool
 }
 
 // Rename allows you to specify the column name in the table

@@ -226,7 +226,7 @@ func (p PackrSource) FindMigrations() ([]*Migration, error) {
 	return migrations, nil
 }
 
-// Migration parsing
+// ParseMigration Migration parsing
 func ParseMigration(id string, r io.ReadSeeker) (*Migration, error) {
 	m := &Migration{
 		Id: id,

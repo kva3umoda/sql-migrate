@@ -5,7 +5,6 @@
 package dialect
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -133,84 +132,6 @@ func (m *DbMap) WithContext(ctx context.Context) SqlExecutor {
 	return copy
 }
 
-func (m *DbMap) CreateIndex() error {
-	var err error
-	dialect := reflect.TypeOf(m.Dialect)
-	for _, table := range m.tables {
-		for _, index := range table.indexes {
-			err = m.createIndexImpl(dialect, table, index)
-			if err != nil {
-				break
-			}
-		}
-	}
-
-	for _, table := range m.dynamicTableMap() {
-		for _, index := range table.indexes {
-			err = m.createIndexImpl(dialect, table, index)
-			if err != nil {
-				break
-			}
-		}
-	}
-
-	return err
-}
-
-func (m *DbMap) createIndexImpl(dialect reflect.Type,
-	table *TableMap,
-	index *IndexMap) error {
-	s := bytes.Buffer{}
-	s.WriteString("create")
-	if index.Unique {
-		s.WriteString(" unique")
-	}
-	s.WriteString(" index")
-	s.WriteString(fmt.Sprintf(" %s on %s", index.IndexName, table.TableName))
-	if dname := dialect.Name(); dname == "PostgresDialect" && index.IndexType != "" {
-		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
-	}
-	s.WriteString(" (")
-	for x, col := range index.columns {
-		if x > 0 {
-			s.WriteString(", ")
-		}
-		s.WriteString(m.Dialect.QuoteField(col))
-	}
-	s.WriteString(")")
-
-	if dname := dialect.Name(); dname == "MySQLDialect" && index.IndexType != "" {
-		s.WriteString(fmt.Sprintf(" %s %s", m.Dialect.CreateIndexSuffix(), index.IndexType))
-	}
-	s.WriteString(";")
-	_, err := m.Exec(s.String())
-	return err
-}
-
-func (t *TableMap) DropIndex(name string) error {
-
-	var err error
-	dialect := reflect.TypeOf(t.dbmap.Dialect)
-	for _, idx := range t.indexes {
-		if idx.IndexName == name {
-			s := bytes.Buffer{}
-			s.WriteString(fmt.Sprintf("DROP INDEX %s", idx.IndexName))
-
-			if dname := dialect.Name(); dname == "MySQLDialect" {
-				s.WriteString(fmt.Sprintf(" %s %s", t.dbmap.Dialect.DropIndexSuffix(), t.TableName))
-			}
-			s.WriteString(";")
-			_, e := t.dbmap.Exec(s.String())
-			if e != nil {
-				err = e
-			}
-			break
-		}
-	}
-	t.ResetSql()
-	return err
-}
-
 // AddTable registers the given interface type with gorp. The table name
 // will be given the name of the TypeOf(i).  You must call this function,
 // or AddTableWithName, for any struct type you wish to persist with
@@ -319,7 +240,6 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 			columnName := cArguments[0]
 			var maxSize int
 			var defaultValue string
-			var isAuto bool
 			var isPK bool
 			var isNotNull bool
 			for _, argString := range cArguments[1:] {
@@ -347,8 +267,6 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 					defaultValue = arg[1]
 				case "primarykey":
 					isPK = true
-				case "autoincrement":
-					isAuto = true
 				case "notnull":
 					isNotNull = true
 				default:
@@ -396,7 +314,6 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 				fieldName:    f.Name,
 				gotype:       gotype,
 				isPK:         isPK,
-				isAutoIncr:   isAuto,
 				isNotNull:    isNotNull,
 				MaxSize:      maxSize,
 			}

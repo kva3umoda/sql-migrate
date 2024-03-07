@@ -47,54 +47,20 @@ func (t *TableMap) ResetSql() {
 //
 // Panics if isAutoIncr is true, and fieldNames length != 1
 
-func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
-	if isAutoIncr && len(fieldNames) != 1 {
-		panic(fmt.Sprintf(
-			"gorp: SetKeys: fieldNames length must be 1 if key is auto-increment. (Saw %v fieldNames)",
-			len(fieldNames)))
-	}
+func (t *TableMap) SetKeys(fieldNames ...string) *TableMap {
 	t.keys = make([]*ColumnMap, 0)
+
 	for _, name := range fieldNames {
 		colmap := t.ColMap(name)
 		colmap.isPK = true
-		colmap.isAutoIncr = isAutoIncr
 		t.keys = append(t.keys, colmap)
 	}
+
 	t.ResetSql()
 
 	return t
 }
 
-// SetUniqueTogether lets you specify uniqueness constraints across multiple
-// columns on the table. Each call adds an additional constraint for the
-// specified columns.
-//
-// Automatically calls ResetSql() to ensure SQL statements are regenerated.
-//
-// Panics if fieldNames length < 2.
-/*
-func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
-	if len(fieldNames) < 2 {
-		panic(fmt.Sprintf(
-			"gorp: SetUniqueTogether: must provide at least two fieldNames to set uniqueness constraint."))
-	}
-
-	columns := make([]string, 0, len(fieldNames))
-	for _, name := range fieldNames {
-		columns = append(columns, name)
-	}
-
-	for _, existingColumns := range t.uniqueTogether {
-		if equal(existingColumns, columns) {
-			return t
-		}
-	}
-	t.uniqueTogether = append(t.uniqueTogether, columns)
-	t.ResetSql()
-
-	return t
-}
-*/
 // ColMap returns the ColumnMap pointer matching the given struct field
 // name.  It panics if the struct does not contain a field matching this
 // name.
@@ -118,59 +84,6 @@ func colMapOrNil(t *TableMap, field string) *ColumnMap {
 	return nil
 }
 
-// IdxMap returns the IndexMap pointer matching the given index name.
-/*
-func (t *TableMap) IdxMap(field string) *IndexMap {
-	for _, idx := range t.indexes {
-		if idx.IndexName == field {
-			return idx
-		}
-	}
-	return nil
-}
-*/
-// AddIndex registers the index with gorp for specified table with given parameters.
-// This operation is idempotent. If index is already mapped, the
-// existing *IndexMap is returned
-// Function will panic if one of the given for index columns does not exists
-//
-// Automatically calls ResetSql() to ensure SQL statements are regenerated.
-
-/*
-func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *IndexMap {
-	// check if we have a index with this name already
-	for _, idx := range t.indexes {
-		if idx.IndexName == name {
-			return idx
-		}
-	}
-	for _, icol := range columns {
-		if res := t.ColMap(icol); res == nil {
-			e := fmt.Sprintf("No ColumnName in table %s to create index on", t.TableName)
-			panic(e)
-		}
-	}
-
-	idx := &IndexMap{IndexName: name, Unique: false, IndexType: idxtype, columns: columns}
-	t.indexes = append(t.indexes, idx)
-	t.ResetSql()
-	return idx
-}
-*/
-
-// SetVersionCol sets the column to use as the Version field.  By default
-// the "Version" field is used.  Returns the column found, or panics
-// if the struct does not contain a field matching this name.
-//
-// Automatically calls ResetSql() to ensure SQL statements are regenerated.
-/*
-func (t *TableMap) SetVersionCol(field string) *ColumnMap {
-	c := t.ColMap(field)
-	t.version = c
-	t.ResetSql()
-	return c
-}
-*/
 // SqlForCreateTable gets a sequence of SQL commands that will create
 // the specified table and any associated schema
 func (t *TableMap) SqlForCreate(ifNotExists bool) string {
@@ -201,7 +114,7 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 			if x > 0 {
 				s.WriteString(", ")
 			}
-			stype := dialect.ToSqlType(col.gotype, col.MaxSize, col.isAutoIncr)
+			stype := dialect.ToSqlType(col.gotype, col.MaxSize)
 			s.WriteString(fmt.Sprintf("%s %s", dialect.QuoteField(col.ColumnName), stype))
 
 			if col.isPK || col.isNotNull {
@@ -212,9 +125,6 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 			}
 			if col.Unique {
 				s.WriteString(" unique")
-			}
-			if col.isAutoIncr {
-				s.WriteString(fmt.Sprintf(" %s", dialect.AutoIncrStr()))
 			}
 
 			x++
@@ -246,16 +156,4 @@ func (t *TableMap) SqlForCreate(ifNotExists bool) string {
 	s.WriteString(dialect.CreateTableSuffix())
 	s.WriteString(dialect.QuerySuffix())
 	return s.String()
-}
-
-func equal(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

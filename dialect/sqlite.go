@@ -13,12 +13,12 @@ type SqliteDialect struct {
 	suffix string
 }
 
-func (d SqliteDialect) QuerySuffix() string { return ";" }
+func (d *SqliteDialect) QuerySuffix() string { return ";" }
 
-func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d *SqliteDialect) ToSqlType(val reflect.Type, maxsize int) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize)
 	case reflect.Bool:
 		return "integer"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -48,65 +48,48 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 	return fmt.Sprintf("varchar(%d)", maxsize)
 }
 
-// Returns autoincrement
-func (d SqliteDialect) AutoIncrStr() string {
-	return "autoincrement"
-}
-
-func (d SqliteDialect) AutoIncrBindValue() string {
-	return "null"
-}
-
-func (d SqliteDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-	return ""
-}
-
 // Returns suffix
-func (d SqliteDialect) CreateTableSuffix() string {
+func (d *SqliteDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (d SqliteDialect) CreateIndexSuffix() string {
+func (d *SqliteDialect) CreateIndexSuffix() string {
 	return ""
 }
 
-func (d SqliteDialect) DropIndexSuffix() string {
+func (d *SqliteDialect) DropIndexSuffix() string {
 	return ""
 }
 
 // With sqlite, there technically isn't a TRUNCATE statement,
 // but a DELETE FROM uses a truncate optimization:
 // http://www.sqlite.org/lang_delete.html
-func (d SqliteDialect) TruncateClause() string {
+func (d *SqliteDialect) TruncateClause() string {
 	return "delete from"
 }
 
 // Returns "?"
-func (d SqliteDialect) BindVar(i int) string {
+func (d *SqliteDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (d SqliteDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error) {
-	return standardInsertAutoIncr(exec, insertSql, params...)
-}
-
-func (d SqliteDialect) QuoteField(f string) string {
+func (d *SqliteDialect) QuoteField(f string) string {
 	return `"` + f + `"`
 }
 
 // sqlite does not have schemas like PostgreSQL does, so just escape it like normal
-func (d SqliteDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *SqliteDialect) QuotedTableForQuery(schema string, table string) string {
 	return d.QuoteField(table)
 }
 
-func (d SqliteDialect) IfSchemaNotExists(command, schema string) string {
+func (d *SqliteDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
 
-func (d SqliteDialect) IfTableExists(command, schema, table string) string {
+func (d *SqliteDialect) IfTableExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if exists", command)
 }
 
-func (d SqliteDialect) IfTableNotExists(command, schema, table string) string {
+func (d *SqliteDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }

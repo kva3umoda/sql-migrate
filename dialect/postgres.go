@@ -16,23 +16,17 @@ type PostgresDialect struct {
 	LowercaseFields bool
 }
 
-func (d PostgresDialect) QuerySuffix() string { return ";" }
+func (d *PostgresDialect) QuerySuffix() string { return ";" }
 
-func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+func (d *PostgresDialect) ToSqlType(val reflect.Type, maxsize int) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+		return d.ToSqlType(val.Elem(), maxsize)
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		if isAutoIncr {
-			return "serial"
-		}
 		return "integer"
 	case reflect.Int64, reflect.Uint64:
-		if isAutoIncr {
-			return "bigserial"
-		}
 		return "bigint"
 	case reflect.Float64:
 		return "double precision"
@@ -63,46 +57,33 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 
 }
 
-// Returns empty string
-func (d PostgresDialect) AutoIncrStr() string {
-	return ""
-}
-
-func (d PostgresDialect) AutoIncrBindValue() string {
-	return "default"
-}
-
-func (d PostgresDialect) AutoIncrInsertSuffix(col *ColumnMap) string {
-	return " returning " + d.QuoteField(col.ColumnName)
-}
-
 // Returns suffix
-func (d PostgresDialect) CreateTableSuffix() string {
+func (d *PostgresDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (d PostgresDialect) CreateIndexSuffix() string {
+func (d *PostgresDialect) CreateIndexSuffix() string {
 	return "using"
 }
 
-func (d PostgresDialect) DropIndexSuffix() string {
+func (d *PostgresDialect) DropIndexSuffix() string {
 	return ""
 }
 
-func (d PostgresDialect) TruncateClause() string {
+func (d *PostgresDialect) TruncateClause() string {
 	return "truncate"
 }
 
-func (d PostgresDialect) SleepClause(s time.Duration) string {
+func (d *PostgresDialect) SleepClause(s time.Duration) string {
 	return fmt.Sprintf("pg_sleep(%f)", s.Seconds())
 }
 
 // Returns "$(i+1)"
-func (d PostgresDialect) BindVar(i int) string {
+func (d *PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
-func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error {
+func (d *PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error {
 	rows, err := exec.Query(insertSql, params...)
 	if err != nil {
 		return err
@@ -121,14 +102,14 @@ func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql stri
 	return rows.Err()
 }
 
-func (d PostgresDialect) QuoteField(f string) string {
+func (d *PostgresDialect) QuoteField(f string) string {
 	if d.LowercaseFields {
 		return `"` + strings.ToLower(f) + `"`
 	}
 	return `"` + f + `"`
 }
 
-func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *PostgresDialect) QuotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
 		return d.QuoteField(table)
 	}
@@ -136,14 +117,14 @@ func (d PostgresDialect) QuotedTableForQuery(schema string, table string) string
 	return schema + "." + d.QuoteField(table)
 }
 
-func (d PostgresDialect) IfSchemaNotExists(command, schema string) string {
+func (d *PostgresDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
 
-func (d PostgresDialect) IfTableExists(command, schema, table string) string {
+func (d *PostgresDialect) IfTableExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if exists", command)
 }
 
-func (d PostgresDialect) IfTableNotExists(command, schema, table string) string {
+func (d *PostgresDialect) IfTableNotExists(command, schema, table string) string {
 	return fmt.Sprintf("%s if not exists", command)
 }
