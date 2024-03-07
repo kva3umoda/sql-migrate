@@ -25,7 +25,7 @@ type MySQLDialect struct {
 
 func (d *MySQLDialect) QuerySuffix() string { return ";" }
 
-func (d *MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
+func (d *MySQLDialect) ToSqlType(val reflect.Kind) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize)
@@ -53,6 +53,8 @@ func (d *MySQLDialect) ToSqlType(val reflect.Type, maxsize int) string {
 		if val.Elem().Kind() == reflect.Uint8 {
 			return "mediumblob"
 		}
+	case reflect.String:
+		return "text"
 	}
 
 	switch val.Name() {
@@ -127,10 +129,6 @@ func (d *MySQLDialect) SleepClause(s time.Duration) string {
 // Returns "?"
 func (d *MySQLDialect) BindVar(i int) string {
 	return "?"
-}
-
-func (d *MySQLDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error) {
-	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 
 func (d *MySQLDialect) QuoteField(f string) string {

@@ -6,7 +6,6 @@ package dialect
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -18,43 +17,25 @@ type PostgresDialect struct {
 
 func (d *PostgresDialect) QuerySuffix() string { return ";" }
 
-func (d *PostgresDialect) ToSqlType(val reflect.Type, maxsize int) string {
-	switch val.Kind() {
-	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize)
-	case reflect.Bool:
+func (d *PostgresDialect) ToSqlType(kind DataKind) string {
+	switch kind {
+	case Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+	case Int, Int8, Int16, Int32, Uint, Uint8, Uint16, Uint32:
 		return "integer"
-	case reflect.Int64, reflect.Uint64:
+	case Int64, Uint64:
 		return "bigint"
-	case reflect.Float64:
+	case Float64:
 		return "double precision"
-	case reflect.Float32:
+	case Float32:
 		return "real"
-	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
-			return "bytea"
-		}
-	}
-
-	switch val.Name() {
-	case "NullInt64":
-		return "bigint"
-	case "NullFloat64":
-		return "double precision"
-	case "NullBool":
-		return "boolean"
-	case "Time", "NullTime":
+	case Datetime:
 		return "timestamp with time zone"
-	}
-
-	if maxsize > 0 {
-		return fmt.Sprintf("varchar(%d)", maxsize)
-	} else {
+	case String:
 		return "text"
 	}
 
+	panic("unsupported type")
 }
 
 // Returns suffix

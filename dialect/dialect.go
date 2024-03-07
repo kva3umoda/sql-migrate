@@ -39,6 +39,26 @@ func (nt *dummyField) Scan(value interface{}) error {
 
 var zeroVal reflect.Value
 
+type DataKind int
+
+const (
+	Bool DataKind = iota
+	Int
+	Int8
+	Int16
+	Int32
+	Int64
+	Uint
+	Uint8
+	Uint16
+	Uint32
+	Uint64
+	Float32
+	Float64
+	String
+	Datetime
+)
+
 type DialectType string
 
 const (
@@ -73,7 +93,7 @@ type Dialect interface {
 	// table of the given Go Type.  maxsize can be used to switch based on
 	// size.  For example, in MySQL []byte could map to BLOB, MEDIUMBLOB,
 	// or LONGBLOB depending on the maxsize
-	ToSqlType(val reflect.Type, maxsize int) string
+	ToSqlType(kind DataKind) string
 
 	// string to append to "create table" statement for vendor specific
 	// table attributes

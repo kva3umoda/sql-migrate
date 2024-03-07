@@ -20,7 +20,7 @@ type SqlServerDialect struct {
 	Version string
 }
 
-func (d *SqlServerDialect) ToSqlType(val reflect.Type, maxsize int) string {
+func (d *SqlServerDialect) ToSqlType(val reflect.Kind) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize)

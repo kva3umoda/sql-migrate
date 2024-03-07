@@ -15,7 +15,7 @@ type OracleDialect struct{}
 
 func (d *OracleDialect) QuerySuffix() string { return "" }
 
-func (d *OracleDialect) ToSqlType(val reflect.Type, maxsize int) string {
+func (d *OracleDialect) ToSqlType(val reflect.Kind) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize)

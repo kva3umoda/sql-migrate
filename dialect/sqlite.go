@@ -15,7 +15,7 @@ type SqliteDialect struct {
 
 func (d *SqliteDialect) QuerySuffix() string { return ";" }
 
-func (d *SqliteDialect) ToSqlType(val reflect.Type, maxsize int) string {
+func (d *SqliteDialect) ToSqlType(val reflect.Kind) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize)

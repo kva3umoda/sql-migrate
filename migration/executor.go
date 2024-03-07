@@ -3,7 +3,6 @@ package migrate
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -21,6 +20,13 @@ const (
 
 const (
 	defaultTableName = "migrations"
+)
+
+var (
+	columns = []Column{
+		{ColumnName: "id", DataType: dialect.String, IsPK: true},
+		{ColumnName: "applied_at", DataType: dialect.Datetime, IsPK: false},
+	}
 )
 
 // Executor provides database parameters for a migration execution
@@ -283,7 +289,11 @@ func (ms *Executor) GetMigrationRecords(db *sql.DB, dialectType dialect.DialectT
 	}
 
 	var records []*MigrationRecord
-	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC", dbMap.Dialect.QuotedTableForQuery(ms.SchemaName, ms.getTableName()), dbMap.Dialect.QuoteField("id"))
+	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC",
+		dbMap.Dialect.QuotedTableForQuery(ms.SchemaName, ms.getTableName()),
+		dbMap.Dialect.QuoteField("id"),
+	)
+
 	_, err = dbMap.Select(&records, query)
 	if err != nil {
 		return nil, err
@@ -292,57 +302,21 @@ func (ms *Executor) GetMigrationRecords(db *sql.DB, dialectType dialect.DialectT
 	return records, nil
 }
 
-func (ms *Executor) getMigrationDbMap(db *sql.DB, dialectType dialect.DialectType) (*dialect.DbMap, error) {
+func (ms *Executor) getMigrationDbMap(db *sql.DB, dialectType dialect.DialectType) (*DbMap, error) {
 	d, ok := dialect.Dialects[dialectType]
 	if !ok {
-		return nil, fmt.Errorf("unknown dialect: %s", dialectType)
-	}
-
-	// When using the mysql driver, make sure that the parseTime option is
-	// configured, otherwise it won't map time columns to time.Time. See
-	// https://github.com/rubenv/sql-migrate/issues/2
-	if dialectType == dialect.MySQL {
-		var out *time.Time
-
-		err := db.QueryRow("SELECT NOW()").Scan(&out)
-		if err != nil {
-			if err.Error() == "sql: Scan error on column index 0: unsupported driver -> Scan pair: []uint8 -> *time.Time" ||
-				err.Error() == "sql: Scan error on column index 0: unsupported Scan, storing driver.Value type []uint8 into type *time.Time" ||
-				err.Error() == "sql: Scan error on column index 0, name \"NOW()\": unsupported Scan, storing driver.Value type []uint8 into type *time.Time" {
-				return nil, errors.New(`Cannot parse dates.
-Make sure that the parseTime option is supplied to your database connection.
-Check https://github.com/go-sql-driver/mysql#parsetime for more info.`)
-			}
-
-			return nil, err
-		}
+		return nil, fmt.Errorf("unknown Dialect: %s", dialectType)
 	}
 
 	// Create migration database map
-	dbMap := dialect.NewDBMap(db, d)
-
-	table := dbMap.AddTableWithNameAndSchema(
-		MigrationRecord{},
-		ms.SchemaName,
-		ms.getTableName(),
-	).SetKeys(false, "Id")
-
-	if dialectType == dialect.OCI8 || dialectType == dialect.GoDrOr {
-		table.ColMap("Id").SetMaxSize(4000)
-	}
+	dbMap := NewDbMap(db, d)
 
 	if ms.DisableCreateTable {
 		return dbMap, nil
 	}
 
-	err := dbMap.CreateTablesIfNotExists()
+	err := dbMap.CreateTableIfNotExists(ms.SchemaName, ms.getTableName(), columns)
 	if err != nil {
-		// Oracle database does not support `if not exists`, so use `ORA-00955:` error code
-		// to check if the table exists.
-		if (dialectType == dialect.OCI8 || dialectType == dialect.GoDrOr) && strings.Contains(err.Error(), "ORA-00955:") {
-			return dbMap, nil
-		}
-
 		return nil, err
 	}
 

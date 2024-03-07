@@ -87,12 +87,12 @@ type DbMap struct {
 	//       })
 	//       // ...
 	//     }
-	ExpandSliceArgs bool
+	//ExpandSliceArgs bool
 
-	tables        []*TableMap
-	tablesDynamic map[string]*TableMap // tables that use same go-struct and different db table names
-	logger        logger.Logger
-	logPrefix     string
+	tables []*TableMap
+
+	logger    logger.Logger
+	logPrefix string
 }
 
 func NewDBMap(db *sql.DB, dialect Dialect) *DbMap {
@@ -100,29 +100,6 @@ func NewDBMap(db *sql.DB, dialect Dialect) *DbMap {
 		Dialect: dialect,
 		Db:      db,
 	}
-}
-
-func (m *DbMap) dynamicTableAdd(tableName string, tbl *TableMap) {
-	if m.tablesDynamic == nil {
-		m.tablesDynamic = make(map[string]*TableMap)
-	}
-
-	m.tablesDynamic[tableName] = tbl
-}
-
-func (m *DbMap) dynamicTableFind(tableName string) (*TableMap, bool) {
-	if m.tablesDynamic == nil {
-		return nil, false
-	}
-	tbl, found := m.tablesDynamic[tableName]
-	return tbl, found
-}
-
-func (m *DbMap) dynamicTableMap() map[string]*TableMap {
-	if m.tablesDynamic == nil {
-		m.tablesDynamic = make(map[string]*TableMap)
-	}
-	return m.tablesDynamic
 }
 
 func (m *DbMap) WithContext(ctx context.Context) SqlExecutor {
@@ -174,36 +151,6 @@ func (m *DbMap) AddTableWithNameAndSchema(i any, schema string, name string) *Ta
 	if len(primaryKey) > 0 {
 		tmap.keys = append(tmap.keys, primaryKey...)
 	}
-
-	return tmap
-}
-
-// AddTableDynamic registers the given interface type with gorp.
-// The table name will be dynamically determined at runtime by
-// using the GetTableName method on DynamicTable interface
-func (m *DbMap) AddTableDynamic(inp DynamicTable, schema string) *TableMap {
-
-	val := reflect.ValueOf(inp)
-	elm := val.Elem()
-	t := elm.Type()
-	name := inp.TableName()
-	if name == "" {
-		panic("Missing table name in DynamicTable instance")
-	}
-
-	// Check if there is another dynamic table with the same name
-	if _, found := m.dynamicTableFind(name); found {
-		panic(fmt.Sprintf("A table with the same name %v already exists", name))
-	}
-
-	tmap := &TableMap{gotype: t, TableName: name, SchemaName: schema, dbmap: m}
-	var primaryKey []*ColumnMap
-	tmap.Columns, primaryKey = m.readStructColumns(t)
-	if len(primaryKey) > 0 {
-		tmap.keys = append(tmap.keys, primaryKey...)
-	}
-
-	m.dynamicTableAdd(name, tmap)
 
 	return tmap
 }
@@ -339,16 +286,7 @@ func (m *DbMap) readStructColumns(t reflect.Type) (cols []*ColumnMap, primaryKey
 	return
 }
 
-// CreateTables iterates through TableMaps registered to this DbMap and
-// executes "create table" statements against the database for each.
-//
-// This is particularly useful in unit tests where you want to create
-// and destroy the schema automatically.
-func (m *DbMap) CreateTables() error {
-	return m.createTables(false)
-}
-
-// CreateTablesIfNotExists is similar to CreateTables, but starts
+// DelCreateTablesIfNotExists is similar to CreateTables, but starts
 // each statement with "create table if not exists" so that existing
 // tables do not raise errors
 func (m *DbMap) CreateTablesIfNotExists() error {
@@ -360,14 +298,6 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 	for i := range m.tables {
 		table := m.tables[i]
 		sql := table.SqlForCreate(ifNotExists)
-		_, err = m.Exec(sql)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, tbl := range m.dynamicTableMap() {
-		sql := tbl.SqlForCreate(ifNotExists)
 		_, err = m.Exec(sql)
 		if err != nil {
 			return err
@@ -425,13 +355,6 @@ func (m *DbMap) dropTables(addIfExists bool) (err error) {
 		}
 	}
 
-	for _, table := range m.dynamicTableMap() {
-		err = m.dropTableImpl(table, addIfExists)
-		if err != nil {
-			return err
-		}
-	}
-
 	return err
 }
 
@@ -462,13 +385,6 @@ func (m *DbMap) TruncateTables() error {
 	var err error
 	for i := range m.tables {
 		table := m.tables[i]
-		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
-		if e != nil {
-			err = e
-		}
-	}
-
-	for _, table := range m.dynamicTableMap() {
 		_, e := m.Exec(fmt.Sprintf("%s %s;", m.Dialect.TruncateClause(), m.Dialect.QuotedTableForQuery(table.SchemaName, table.TableName)))
 		if e != nil {
 			err = e
@@ -694,25 +610,6 @@ func (m *DbMap) TableFor(t reflect.Type, checkPK bool) (*TableMap, error) {
 	return table, nil
 }
 
-// DynamicTableFor returns the *TableMap for the dynamic table corresponding
-// to the input tablename
-// If no table is mapped to that tablename an error is returned.
-// If checkPK is true and the mapped table has no registered PKs, an error is returned.
-func (m *DbMap) DynamicTableFor(tableName string, checkPK bool) (*TableMap, error) {
-	table, found := m.dynamicTableFind(tableName)
-	if !found {
-		return nil, fmt.Errorf("gorp: no table found for name: %v", tableName)
-	}
-
-	if checkPK && len(table.keys) < 1 {
-		e := fmt.Sprintf("gorp: no keys defined for table: %s",
-			table.TableName)
-		return nil, errors.New(e)
-	}
-
-	return table, nil
-}
-
 // Prepare creates a prepared statement for later queries or executions.
 // Multiple queries or executions may be run concurrently from the returned statement.
 // This is equivalent to running:  Prepare() using database/sql
@@ -725,14 +622,6 @@ func (m *DbMap) Prepare(query string) (*sql.Stmt, error) {
 }
 
 func tableOrNil(m *DbMap, t reflect.Type, name string) *TableMap {
-	if name != "" {
-		// Search by table name (dynamic tables)
-		if table, found := m.dynamicTableFind(name); found {
-			return table
-		}
-		return nil
-	}
-
 	for i := range m.tables {
 		table := m.tables[i]
 		if table.gotype == t {
@@ -753,14 +642,9 @@ func (m *DbMap) tableForPointer(ptr any, checkPK bool) (*TableMap, reflect.Value
 	ifc := elem.Interface()
 	var t *TableMap
 	var err error
-	tableName := ""
-	if dyn, isDyn := ptr.(DynamicTable); isDyn {
-		tableName = dyn.TableName()
-		t, err = m.DynamicTableFor(tableName, checkPK)
-	} else {
-		etype := reflect.TypeOf(ifc)
-		t, err = m.TableFor(etype, checkPK)
-	}
+
+	etype := reflect.TypeOf(ifc)
+	t, err = m.TableFor(etype, checkPK)
 
 	if err != nil {
 		return nil, reflect.Value{}, err

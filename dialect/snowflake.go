@@ -17,7 +17,7 @@ type SnowflakeDialect struct {
 
 func (d *SnowflakeDialect) QuerySuffix() string { return ";" }
 
-func (d *SnowflakeDialect) ToSqlType(val reflect.Type, maxsize int) string {
+func (d *SnowflakeDialect) ToSqlType(val reflect.Kind) string {
 	switch val.Kind() {
 	case reflect.Ptr:
 		return d.ToSqlType(val.Elem(), maxsize)
