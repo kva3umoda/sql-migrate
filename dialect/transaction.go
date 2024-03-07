@@ -29,32 +29,32 @@ func (t *Transaction) WithContext(ctx context.Context) SqlExecutor {
 }
 
 // Insert has the same behavior as DbMap.Insert(), but runs in a transaction.
-func (t *Transaction) Insert(list ...interface{}) error {
+func (t *Transaction) Insert(list ...any) error {
 	return insert(t.dbmap, t, list...)
 }
 
 // Update had the same behavior as DbMap.Update(), but runs in a transaction.
-func (t *Transaction) Update(list ...interface{}) (int64, error) {
+func (t *Transaction) Update(list ...any) (int64, error) {
 	return update(t.dbmap, t, nil, list...)
 }
 
 // UpdateColumns had the same behavior as DbMap.UpdateColumns(), but runs in a transaction.
-func (t *Transaction) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, error) {
+func (t *Transaction) UpdateColumns(filter ColumnFilter, list ...any) (int64, error) {
 	return update(t.dbmap, t, filter, list...)
 }
 
 // Delete has the same behavior as DbMap.Delete(), but runs in a transaction.
-func (t *Transaction) Delete(list ...interface{}) (int64, error) {
+func (t *Transaction) Delete(list ...any) (int64, error) {
 	return delete(t.dbmap, t, list...)
 }
 
 // Get has the same behavior as DbMap.Get(), but runs in a transaction.
-func (t *Transaction) Get(i interface{}, keys ...interface{}) (interface{}, error) {
+func (t *Transaction) Get(i any, keys ...any) (any, error) {
 	return get(t.dbmap, t, i, keys...)
 }
 
 // Select has the same behavior as DbMap.Select(), but runs in a transaction.
-func (t *Transaction) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
+func (t *Transaction) Select(i any, query string, args ...any) ([]any, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -63,7 +63,7 @@ func (t *Transaction) Select(i interface{}, query string, args ...interface{}) (
 }
 
 // Exec has the same behavior as DbMap.Exec(), but runs in a transaction.
-func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (t *Transaction) Exec(query string, args ...any) (sql.Result, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -76,7 +76,7 @@ func (t *Transaction) Exec(query string, args ...interface{}) (sql.Result, error
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function.
-func (t *Transaction) SelectInt(query string, args ...interface{}) (int64, error) {
+func (t *Transaction) SelectInt(query string, args ...any) (int64, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -85,7 +85,7 @@ func (t *Transaction) SelectInt(query string, args ...interface{}) (int64, error
 }
 
 // SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function.
-func (t *Transaction) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+func (t *Transaction) SelectNullInt(query string, args ...any) (sql.NullInt64, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -94,7 +94,7 @@ func (t *Transaction) SelectNullInt(query string, args ...interface{}) (sql.Null
 }
 
 // SelectFloat is a convenience wrapper around the gorp.SelectFloat function.
-func (t *Transaction) SelectFloat(query string, args ...interface{}) (float64, error) {
+func (t *Transaction) SelectFloat(query string, args ...any) (float64, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -103,7 +103,7 @@ func (t *Transaction) SelectFloat(query string, args ...interface{}) (float64, e
 }
 
 // SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function.
-func (t *Transaction) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+func (t *Transaction) SelectNullFloat(query string, args ...any) (sql.NullFloat64, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -112,7 +112,7 @@ func (t *Transaction) SelectNullFloat(query string, args ...interface{}) (sql.Nu
 }
 
 // SelectStr is a convenience wrapper around the gorp.SelectStr function.
-func (t *Transaction) SelectStr(query string, args ...interface{}) (string, error) {
+func (t *Transaction) SelectStr(query string, args ...any) (string, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -121,7 +121,7 @@ func (t *Transaction) SelectStr(query string, args ...interface{}) (string, erro
 }
 
 // SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function.
-func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+func (t *Transaction) SelectNullStr(query string, args ...any) (sql.NullString, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -130,7 +130,7 @@ func (t *Transaction) SelectNullStr(query string, args ...interface{}) (sql.Null
 }
 
 // SelectOne is a convenience wrapper around the gorp.SelectOne function.
-func (t *Transaction) SelectOne(holder interface{}, query string, args ...interface{}) error {
+func (t *Transaction) SelectOne(holder any, query string, args ...any) error {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -214,7 +214,7 @@ func (t *Transaction) Prepare(query string) (*sql.Stmt, error) {
 	return prepare(t, query)
 }
 
-func (t *Transaction) QueryRow(query string, args ...interface{}) *sql.Row {
+func (t *Transaction) QueryRow(query string, args ...any) *sql.Row {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -226,7 +226,7 @@ func (t *Transaction) QueryRow(query string, args ...interface{}) *sql.Row {
 	return queryRow(t, query, args...)
 }
 
-func (t *Transaction) Query(q string, args ...interface{}) (*sql.Rows, error) {
+func (t *Transaction) Query(q string, args ...any) (*sql.Rows, error) {
 	if t.dbmap.ExpandSliceArgs {
 		expandSliceArgs(&q, args...)
 	}

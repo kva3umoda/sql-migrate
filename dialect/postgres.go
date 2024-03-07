@@ -102,7 +102,7 @@ func (d PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
 }
 
-func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
+func (d PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error {
 	rows, err := exec.Query(insertSql, params...)
 	if err != nil {
 		return err

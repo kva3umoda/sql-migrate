@@ -105,7 +105,7 @@ func (d SnowflakeDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (d SnowflakeDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target interface{}, params ...interface{}) error {
+func (d SnowflakeDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error {
 	rows, err := exec.Query(insertSql, params...)
 	if err != nil {
 		return err

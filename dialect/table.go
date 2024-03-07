@@ -20,7 +20,6 @@ type TableMap struct {
 	gotype         reflect.Type
 	Columns        []*ColumnMap
 	keys           []*ColumnMap
-	indexes        []*IndexMap
 	uniqueTogether [][]string
 	version        *ColumnMap
 	insertPlan     bindPlan
@@ -47,6 +46,7 @@ func (t *TableMap) ResetSql() {
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
 //
 // Panics if isAutoIncr is true, and fieldNames length != 1
+
 func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 	if isAutoIncr && len(fieldNames) != 1 {
 		panic(fmt.Sprintf(
@@ -72,6 +72,7 @@ func (t *TableMap) SetKeys(isAutoIncr bool, fieldNames ...string) *TableMap {
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
 //
 // Panics if fieldNames length < 2.
+/*
 func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
 	if len(fieldNames) < 2 {
 		panic(fmt.Sprintf(
@@ -93,7 +94,7 @@ func (t *TableMap) SetUniqueTogether(fieldNames ...string) *TableMap {
 
 	return t
 }
-
+*/
 // ColMap returns the ColumnMap pointer matching the given struct field
 // name.  It panics if the struct does not contain a field matching this
 // name.
@@ -118,6 +119,7 @@ func colMapOrNil(t *TableMap, field string) *ColumnMap {
 }
 
 // IdxMap returns the IndexMap pointer matching the given index name.
+/*
 func (t *TableMap) IdxMap(field string) *IndexMap {
 	for _, idx := range t.indexes {
 		if idx.IndexName == field {
@@ -126,13 +128,15 @@ func (t *TableMap) IdxMap(field string) *IndexMap {
 	}
 	return nil
 }
-
+*/
 // AddIndex registers the index with gorp for specified table with given parameters.
 // This operation is idempotent. If index is already mapped, the
 // existing *IndexMap is returned
 // Function will panic if one of the given for index columns does not exists
 //
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
+
+/*
 func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *IndexMap {
 	// check if we have a index with this name already
 	for _, idx := range t.indexes {
@@ -152,19 +156,21 @@ func (t *TableMap) AddIndex(name string, idxtype string, columns []string) *Inde
 	t.ResetSql()
 	return idx
 }
+*/
 
 // SetVersionCol sets the column to use as the Version field.  By default
 // the "Version" field is used.  Returns the column found, or panics
 // if the struct does not contain a field matching this name.
 //
 // Automatically calls ResetSql() to ensure SQL statements are regenerated.
+/*
 func (t *TableMap) SetVersionCol(field string) *ColumnMap {
 	c := t.ColMap(field)
 	t.version = c
 	t.ResetSql()
 	return c
 }
-
+*/
 // SqlForCreateTable gets a sequence of SQL commands that will create
 // the specified table and any associated schema
 func (t *TableMap) SqlForCreate(ifNotExists bool) string {

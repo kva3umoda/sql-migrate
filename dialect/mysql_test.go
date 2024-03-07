@@ -35,7 +35,7 @@ func TestMySQLDialect(t *testing.T) {
 	o.Group("ToSqlType", func() {
 		tests := []struct {
 			name     string
-			value    interface{}
+			value    any
 			maxSize  int
 			autoIncr bool
 			expected string
@@ -164,7 +164,7 @@ func Panic() panicMatcher {
 	return panicMatcher{}
 }
 
-func (m panicMatcher) Match(actual interface{}) (resultValue interface{}, err error) {
+func (m panicMatcher) Match(actual any) (resultValue any, err error) {
 	switch f := actual.(type) {
 	case func():
 		panicked := false

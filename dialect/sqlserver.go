@@ -101,7 +101,7 @@ func (d SqlServerDialect) BindVar(i int) string {
 	return "?"
 }
 
-func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...interface{}) (int64, error) {
+func (d SqlServerDialect) InsertAutoIncr(exec SqlExecutor, insertSql string, params ...any) (int64, error) {
 	return standardInsertAutoIncr(exec, insertSql, params...)
 }
 

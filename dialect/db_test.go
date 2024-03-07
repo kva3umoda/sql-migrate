@@ -27,7 +27,7 @@ func TestDbMap_Select_expandSliceArgs(t *testing.T) {
 	tests := []struct {
 		description string
 		query       string
-		args        []interface{}
+		args        []any
 		wantLen     int
 	}{
 		{
@@ -49,8 +49,8 @@ AND field12 IN (:FieldInt64List)
 AND field13 IN (:FieldFloat32List)
 AND field14 IN (:FieldFloat64List)
 `,
-			args: []interface{}{
-				map[string]interface{}{
+			args: []any{
+				map[string]any{
 					"Field1":           123,
 					"FieldStringList":  []string{"h", "e", "y"},
 					"FieldUIntList":    []uint{1, 2, 3, 4},
@@ -76,8 +76,8 @@ SELECT 1 FROM crazy_table
 WHERE field2 IN (:FieldStringList)
 AND field12 IN (:FieldIntList)
 `,
-			args: []interface{}{
-				map[string]interface{}{
+			args: []any{
+				map[string]any{
 					"FieldStringList": customType1{"h", "e", "y"},
 					"FieldIntList":    customType2{1, 2, 3, 4},
 				},

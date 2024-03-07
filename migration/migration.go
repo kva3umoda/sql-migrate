@@ -17,7 +17,7 @@ type Migration struct {
 	DisableTransactionDown bool
 }
 
-func (m Migration) Less(other *Migration) bool {
+func (m *Migration) Less(other *Migration) bool {
 	switch {
 	case m.isNumeric() && other.isNumeric() && m.VersionInt() != other.VersionInt():
 		return m.VersionInt() < other.VersionInt()
@@ -30,15 +30,15 @@ func (m Migration) Less(other *Migration) bool {
 	}
 }
 
-func (m Migration) isNumeric() bool {
+func (m *Migration) isNumeric() bool {
 	return len(m.NumberPrefixMatches()) > 0
 }
 
-func (m Migration) NumberPrefixMatches() []string {
+func (m *Migration) NumberPrefixMatches() []string {
 	return numberPrefixRegex.FindStringSubmatch(m.Id)
 }
 
-func (m Migration) VersionInt() int64 {
+func (m *Migration) VersionInt() int64 {
 	v := m.NumberPrefixMatches()[1]
 	value, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {

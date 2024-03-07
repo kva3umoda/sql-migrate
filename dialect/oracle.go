@@ -92,7 +92,7 @@ func (d OracleDialect) BindVar(i int) string {
 }
 
 // After executing the insert uses the ColMap IdQuery to get the generated id
-func (d OracleDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target interface{}, params ...interface{}) error {
+func (d OracleDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target any, params ...any) error {
 	_, err := exec.Exec(insertSql, params...)
 	if err != nil {
 		return err

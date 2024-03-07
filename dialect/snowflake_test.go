@@ -32,7 +32,7 @@ func TestSnowflakeDialect(t *testing.T) {
 	o.Group("ToSqlType", func() {
 		tests := []struct {
 			name     string
-			value    interface{}
+			value    any
 			maxSize  int
 			autoIncr bool
 			expected string

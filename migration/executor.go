@@ -39,9 +39,9 @@ type Executor struct {
 }
 
 type SqlExecutor interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	Insert(list ...interface{}) error
-	Delete(list ...interface{}) (int64, error)
+	Exec(query string, args ...any) (sql.Result, error)
+	Insert(list ...any) error
+	Delete(list ...any) (int64, error)
 }
 
 type MigrationRecord struct {
@@ -111,6 +111,7 @@ func (*Executor) applyMigrations(ctx context.Context, dir Direction, migrations 
 			if err != nil {
 				return applied, newTxError(migration, err)
 			}
+
 			executor = e.WithContext(ctx)
 		}
 
@@ -318,10 +319,15 @@ Check https://github.com/go-sql-driver/mysql#parsetime for more info.`)
 	}
 
 	// Create migration database map
-	dbMap := &dialect.DbMap{Db: db, Dialect: d}
-	table := dbMap.AddTableWithNameAndSchema(MigrationRecord{}, ms.SchemaName, ms.getTableName()).SetKeys(false, "Id")
+	dbMap := dialect.NewDBMap(db, d)
 
-	if dialectType == "oci8" || dialectType == "godror" {
+	table := dbMap.AddTableWithNameAndSchema(
+		MigrationRecord{},
+		ms.SchemaName,
+		ms.getTableName(),
+	).SetKeys(false, "Id")
+
+	if dialectType == dialect.OCI8 || dialectType == dialect.GoDrOr {
 		table.ColMap("Id").SetMaxSize(4000)
 	}
 
@@ -333,9 +339,10 @@ Check https://github.com/go-sql-driver/mysql#parsetime for more info.`)
 	if err != nil {
 		// Oracle database does not support `if not exists`, so use `ORA-00955:` error code
 		// to check if the table exists.
-		if (dialectType == "oci8" || dialectType == "godror") && strings.Contains(err.Error(), "ORA-00955:") {
+		if (dialectType == dialect.OCI8 || dialectType == dialect.GoDrOr) && strings.Contains(err.Error(), "ORA-00955:") {
 			return dbMap, nil
 		}
+
 		return nil, err
 	}
 

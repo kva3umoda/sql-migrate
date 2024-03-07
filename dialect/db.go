@@ -44,7 +44,7 @@ type DbMap struct {
 	// adding each item of the slice as a new unique entry in the mapper. For
 	// example, given the scenario bellow:
 	//
-	//     dbmap.Select(&output, "SELECT 1 FROM example WHERE id IN (:IDs)", map[string]interface{}{
+	//     dbmap.Select(&output, "SELECT 1 FROM example WHERE id IN (:IDs)", map[string]any{
 	//       "IDs": []int64{1, 2, 3},
 	//     })
 	//
@@ -54,7 +54,7 @@ type DbMap struct {
 	//
 	// With the mapper:
 	//
-	//     map[string]interface{}{
+	//     map[string]any{
 	//       "IDs":  []int64{1, 2, 3},
 	//       "IDs0": int64(1),
 	//       "IDs1": int64(2),
@@ -83,7 +83,7 @@ type DbMap struct {
 	//
 	//     func query() {
 	//       // ...
-	//       result, err := dbmap.Select(&output, "SELECT 1 FROM example WHERE value IN (:Values)", map[string]interface{}{
+	//       result, err := dbmap.Select(&output, "SELECT 1 FROM example WHERE value IN (:Values)", map[string]any{
 	//         "Values": CustomValues([]CustomValue{CustomValueHey}),
 	//       })
 	//       // ...
@@ -218,19 +218,19 @@ func (t *TableMap) DropIndex(name string) error {
 //
 // This operation is idempotent. If i's type is already mapped, the
 // existing *TableMap is returned
-func (m *DbMap) AddTable(i interface{}) *TableMap {
+func (m *DbMap) AddTable(i any) *TableMap {
 	return m.AddTableWithName(i, "")
 }
 
 // AddTableWithName has the same behavior as AddTable, but sets
 // table.TableName to name.
-func (m *DbMap) AddTableWithName(i interface{}, name string) *TableMap {
+func (m *DbMap) AddTableWithName(i any, name string) *TableMap {
 	return m.AddTableWithNameAndSchema(i, "", name)
 }
 
 // AddTableWithNameAndSchema has the same behavior as AddTable, but sets
 // table.TableName to name.
-func (m *DbMap) AddTableWithNameAndSchema(i interface{}, schema string, name string) *TableMap {
+func (m *DbMap) AddTableWithNameAndSchema(i any, schema string, name string) *TableMap {
 	t := reflect.TypeOf(i)
 	if name == "" {
 		name = t.Name()
@@ -462,7 +462,7 @@ func (m *DbMap) createTables(ifNotExists bool) error {
 
 // DropTable drops an individual table.
 // Returns an error when the table does not exist.
-func (m *DbMap) DropTable(table interface{}) error {
+func (m *DbMap) DropTable(table any) error {
 	t := reflect.TypeOf(table)
 
 	tableName := ""
@@ -474,7 +474,7 @@ func (m *DbMap) DropTable(table interface{}) error {
 }
 
 // DropTableIfExists drops an individual table when the table exists.
-func (m *DbMap) DropTableIfExists(table interface{}) error {
+func (m *DbMap) DropTableIfExists(table any) error {
 	t := reflect.TypeOf(table)
 
 	tableName := ""
@@ -571,7 +571,7 @@ func (m *DbMap) TruncateTables() error {
 // before/after the INSERT statement if the interface defines them.
 //
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Insert(list ...interface{}) error {
+func (m *DbMap) Insert(list ...any) error {
 	return insert(m, m, list...)
 }
 
@@ -585,7 +585,7 @@ func (m *DbMap) Insert(list ...interface{}) error {
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Update(list ...interface{}) (int64, error) {
+func (m *DbMap) Update(list ...any) (int64, error) {
 	return update(m, m, nil, list...)
 }
 
@@ -601,7 +601,7 @@ func (m *DbMap) Update(list ...interface{}) (int64, error) {
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, error) {
+func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...any) (int64, error) {
 	return update(m, m, filter, list...)
 }
 
@@ -615,7 +615,7 @@ func (m *DbMap) UpdateColumns(filter ColumnFilter, list ...interface{}) (int64, 
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Delete(list ...interface{}) (int64, error) {
+func (m *DbMap) Delete(list ...any) (int64, error) {
 	return delete(m, m, list...)
 }
 
@@ -634,7 +634,7 @@ func (m *DbMap) Delete(list ...interface{}) (int64, error) {
 //
 // Returns an error if SetKeys has not been called on the TableMap
 // Panics if any interface in the list has not been registered with AddTable
-func (m *DbMap) Get(i interface{}, keys ...interface{}) (interface{}, error) {
+func (m *DbMap) Get(i any, keys ...any) (any, error) {
 	return get(m, m, i, keys...)
 }
 
@@ -657,7 +657,7 @@ func (m *DbMap) Get(i interface{}, keys ...interface{}) (interface{}, error) {
 // and nil returned.
 //
 // i does NOT need to be registered with AddTable()
-func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
+func (m *DbMap) Select(i any, query string, args ...any) ([]any, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -667,7 +667,7 @@ func (m *DbMap) Select(i interface{}, query string, args ...interface{}) ([]inte
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
-func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (m *DbMap) Exec(query string, args ...any) (sql.Result, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -680,7 +680,7 @@ func (m *DbMap) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 // SelectInt is a convenience wrapper around the gorp.SelectInt function
-func (m *DbMap) SelectInt(query string, args ...interface{}) (int64, error) {
+func (m *DbMap) SelectInt(query string, args ...any) (int64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -689,7 +689,7 @@ func (m *DbMap) SelectInt(query string, args ...interface{}) (int64, error) {
 }
 
 // SelectNullInt is a convenience wrapper around the gorp.SelectNullInt function
-func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+func (m *DbMap) SelectNullInt(query string, args ...any) (sql.NullInt64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -698,7 +698,7 @@ func (m *DbMap) SelectNullInt(query string, args ...interface{}) (sql.NullInt64,
 }
 
 // SelectFloat is a convenience wrapper around the gorp.SelectFloat function
-func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) {
+func (m *DbMap) SelectFloat(query string, args ...any) (float64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -707,7 +707,7 @@ func (m *DbMap) SelectFloat(query string, args ...interface{}) (float64, error) 
 }
 
 // SelectNullFloat is a convenience wrapper around the gorp.SelectNullFloat function
-func (m *DbMap) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+func (m *DbMap) SelectNullFloat(query string, args ...any) (sql.NullFloat64, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -716,7 +716,7 @@ func (m *DbMap) SelectNullFloat(query string, args ...interface{}) (sql.NullFloa
 }
 
 // SelectStr is a convenience wrapper around the gorp.SelectStr function
-func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
+func (m *DbMap) SelectStr(query string, args ...any) (string, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -725,7 +725,7 @@ func (m *DbMap) SelectStr(query string, args ...interface{}) (string, error) {
 }
 
 // SelectNullStr is a convenience wrapper around the gorp.SelectNullStr function
-func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+func (m *DbMap) SelectNullStr(query string, args ...any) (sql.NullString, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -734,7 +734,7 @@ func (m *DbMap) SelectNullStr(query string, args ...interface{}) (sql.NullString
 }
 
 // SelectOne is a convenience wrapper around the gorp.SelectOne function
-func (m *DbMap) SelectOne(holder interface{}, query string, args ...interface{}) error {
+func (m *DbMap) SelectOne(holder any, query string, args ...any) error {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -825,7 +825,7 @@ func tableOrNil(m *DbMap, t reflect.Type, name string) *TableMap {
 	return nil
 }
 
-func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, reflect.Value, error) {
+func (m *DbMap) tableForPointer(ptr any, checkPK bool) (*TableMap, reflect.Value, error) {
 	ptrv := reflect.ValueOf(ptr)
 	if ptrv.Kind() != reflect.Ptr {
 		e := fmt.Sprintf("gorp: passed non-pointer: %v (kind=%v)", ptr,
@@ -852,7 +852,7 @@ func (m *DbMap) tableForPointer(ptr interface{}, checkPK bool) (*TableMap, refle
 	return t, elem, nil
 }
 
-func (m *DbMap) QueryRow(query string, args ...interface{}) *sql.Row {
+func (m *DbMap) QueryRow(query string, args ...any) *sql.Row {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -864,7 +864,7 @@ func (m *DbMap) QueryRow(query string, args ...interface{}) *sql.Row {
 	return queryRow(m, query, args...)
 }
 
-func (m *DbMap) Query(q string, args ...interface{}) (*sql.Rows, error) {
+func (m *DbMap) Query(q string, args ...any) (*sql.Rows, error) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&q, args...)
 	}
@@ -876,7 +876,7 @@ func (m *DbMap) Query(q string, args ...interface{}) (*sql.Rows, error) {
 	return query(m, q, args...)
 }
 
-func (m *DbMap) trace(started time.Time, query string, args ...interface{}) {
+func (m *DbMap) trace(started time.Time, query string, args ...any) {
 	if m.ExpandSliceArgs {
 		expandSliceArgs(&query, args...)
 	}
@@ -895,9 +895,9 @@ type numberer interface {
 	ToInt64Slice() []int64
 }
 
-func expandSliceArgs(query *string, args ...interface{}) {
+func expandSliceArgs(query *string, args ...any) {
 	for _, arg := range args {
-		mapper, ok := arg.(map[string]interface{})
+		mapper, ok := arg.(map[string]any)
 		if !ok {
 			continue
 		}
