@@ -70,17 +70,36 @@ func (ms *Executor) Exec(db *sql.DB, dialect dialect.DialectType, m Source, dir 
 }
 
 // ExecContext Returns the number of applied migrations.
-func (ms *Executor) ExecContext(ctx context.Context, db *sql.DB, dialect dialect.DialectType, m Source, dir Direction) (int, error) {
+func (ms *Executor) ExecContext(
+	ctx context.Context,
+	db *sql.DB,
+	dialect dialect.DialectType,
+	m Source,
+	dir Direction,
+) (int, error) {
 	return ms.ExecMaxContext(ctx, db, dialect, m, dir, 0)
 }
 
 // ExecMax Returns the number of applied migrations.
-func (ms *Executor) ExecMax(db *sql.DB, dialect dialect.DialectType, m Source, dir Direction, max int) (int, error) {
+func (ms *Executor) ExecMax(
+	db *sql.DB,
+	dialect dialect.DialectType,
+	m Source,
+	dir Direction,
+	max int,
+) (int, error) {
 	return ms.ExecMaxContext(context.Background(), db, dialect, m, dir, max)
 }
 
 // ExecMaxContext Returns the number of applied migrations, but applies with an input context.
-func (ms *Executor) ExecMaxContext(ctx context.Context, db *sql.DB, dialect dialect.DialectType, m Source, dir Direction, max int) (int, error) {
+func (ms *Executor) ExecMaxContext(
+	ctx context.Context,
+	db *sql.DB,
+	dialect dialect.DialectType,
+	m Source,
+	dir Direction,
+	max int,
+) (int, error) {
 	migrations, dbMap, err := ms.PlanMigration(db, dialect, m, dir, max)
 	if err != nil {
 		return 0, err
@@ -90,11 +109,24 @@ func (ms *Executor) ExecMaxContext(ctx context.Context, db *sql.DB, dialect dial
 }
 
 // ExecVersion Returns the number of applied migrations.
-func (ms *Executor) ExecVersion(db *sql.DB, dialect dialect.DialectType, m Source, dir Direction, version int64) (int, error) {
+func (ms *Executor) ExecVersion(
+	db *sql.DB,
+	dialect dialect.DialectType,
+	m Source,
+	dir Direction,
+	version int64,
+) (int, error) {
 	return ms.ExecVersionContext(context.Background(), db, dialect, m, dir, version)
 }
 
-func (ms *Executor) ExecVersionContext(ctx context.Context, db *sql.DB, dialect dialect.DialectType, m Source, dir Direction, version int64) (int, error) {
+func (ms *Executor) ExecVersionContext(
+	ctx context.Context,
+	db *sql.DB,
+	dialect dialect.DialectType,
+	m Source,
+	dir Direction,
+	version int64,
+) (int, error) {
 	migrations, dbMap, err := ms.PlanMigrationToVersion(db, dialect, m, dir, version)
 	if err != nil {
 		return 0, err
@@ -104,7 +136,12 @@ func (ms *Executor) ExecVersionContext(ctx context.Context, db *sql.DB, dialect 
 }
 
 // Applies the planned migrations and returns the number of applied migrations.
-func (*Executor) applyMigrations(ctx context.Context, dir Direction, migrations []*PlannedMigration, dbMap *dialect.DbMap) (int, error) {
+func (*Executor) applyMigrations(
+	ctx context.Context,
+	dir Direction,
+	migrations []*PlannedMigration,
+	dbMap *dialect.DbMap,
+) (int, error) {
 	applied := 0
 	for _, migration := range migrations {
 		var executor SqlExecutor
@@ -176,17 +213,36 @@ func (*Executor) applyMigrations(ctx context.Context, dir Direction, migrations 
 }
 
 // PlanMigration Plan a migration.
-func (ms *Executor) PlanMigration(db *sql.DB, dialectType dialect.DialectType, m Source, dir Direction, max int) ([]*PlannedMigration, *dialect.DbMap, error) {
+func (ms *Executor) PlanMigration(
+	db *sql.DB,
+	dialectType dialect.DialectType,
+	m Source,
+	dir Direction,
+	max int,
+) ([]*PlannedMigration, *DbMap, error) {
 	return ms.planMigrationCommon(db, dialectType, m, dir, max, -1)
 }
 
 // PlanMigrationToVersion Plan a migration to version.
-func (ms *Executor) PlanMigrationToVersion(db *sql.DB, dialectType dialect.DialectType, m Source, dir Direction, version int64) ([]*PlannedMigration, *dialect.DbMap, error) {
+func (ms *Executor) PlanMigrationToVersion(
+	db *sql.DB,
+	dialectType dialect.DialectType,
+	m Source,
+	dir Direction,
+	version int64,
+) ([]*PlannedMigration, *DbMap, error) {
 	return ms.planMigrationCommon(db, dialectType, m, dir, 0, version)
 }
 
 // planMigrationCommon A common method to plan a migration.
-func (ms *Executor) planMigrationCommon(db *sql.DB, dialectType dialect.DialectType, m Source, dir Direction, max int, version int64) ([]*PlannedMigration, *dialect.DbMap, error) {
+func (ms *Executor) planMigrationCommon(
+	db *sql.DB,
+	dialectType dialect.DialectType,
+	m Source,
+	dir Direction,
+	max int,
+	version int64,
+) ([]*PlannedMigration, *DbMap, error) {
 	dbMap, err := ms.getMigrationDbMap(db, dialectType)
 	if err != nil {
 		return nil, nil, err

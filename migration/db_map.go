@@ -4,10 +4,8 @@ import (
 	`bytes`
 	`context`
 	`database/sql`
-	`database/sql/driver`
 	`fmt`
 	`io`
-	`reflect`
 	`strings`
 	`time`
 
@@ -109,38 +107,4 @@ func (m *DbMap) trace(started time.Time, query string, args ...any) {
 		var margs = argsString(args...)
 		m.logger.Printf("%s%s [%s] (%v)", m.logPrefix, query, margs, (time.Now().Sub(started)))
 	}
-}
-
-func argsString(args ...any) string {
-	var margs string
-	for i, a := range args {
-		v := argValue(a)
-		switch v.(type) {
-		case string:
-			v = fmt.Sprintf("%q", v)
-		default:
-			v = fmt.Sprintf("%v", v)
-		}
-		margs += fmt.Sprintf("%d:%s", i+1, v)
-		if i+1 < len(args) {
-			margs += " "
-		}
-	}
-	return margs
-}
-
-func argValue(a any) any {
-	v, ok := a.(driver.Valuer)
-	if !ok {
-		return a
-	}
-	vV := reflect.ValueOf(v)
-	if vV.Kind() == reflect.Ptr && vV.IsNil() {
-		return nil
-	}
-	ret, err := v.Value()
-	if err != nil {
-		return a
-	}
-	return ret
 }
