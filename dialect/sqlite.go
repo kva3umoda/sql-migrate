@@ -6,8 +6,9 @@ package dialect
 
 import (
 	"fmt"
-	"reflect"
 )
+
+var _ Dialect = (*SqliteDialect)(nil)
 
 type SqliteDialect struct {
 	suffix string
@@ -15,37 +16,21 @@ type SqliteDialect struct {
 
 func (d *SqliteDialect) QuerySuffix() string { return ";" }
 
-func (d *SqliteDialect) ToSqlType(val reflect.Kind) string {
-	switch val.Kind() {
-	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize)
-	case reflect.Bool:
+func (d *SqliteDialect) ToSqlType(kind DataKind) string {
+	switch kind {
+	case Bool:
 		return "integer"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case Int, Int8, Int16, Int32, Int64, Uint, Uint8, Uint16, Uint32, Uint64:
 		return "integer"
-	case reflect.Float64, reflect.Float32:
+	case Float64, Float32:
 		return "real"
-	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
-			return "blob"
-		}
-	}
-
-	switch val.Name() {
-	case "NullInt64":
-		return "integer"
-	case "NullFloat64":
-		return "real"
-	case "NullBool":
-		return "integer"
-	case "Time":
+	case Datetime:
 		return "datetime"
+	case String:
+		return "text"
 	}
 
-	if maxsize < 1 {
-		maxsize = 255
-	}
-	return fmt.Sprintf("varchar(%d)", maxsize)
+	panic(fmt.Sprintf("unsupported type: %d", kind))
 }
 
 // Returns suffix
@@ -53,19 +38,8 @@ func (d *SqliteDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (d *SqliteDialect) CreateIndexSuffix() string {
-	return ""
-}
-
 func (d *SqliteDialect) DropIndexSuffix() string {
 	return ""
-}
-
-// With sqlite, there technically isn't a TRUNCATE statement,
-// but a DELETE FROM uses a truncate optimization:
-// http://www.sqlite.org/lang_delete.html
-func (d *SqliteDialect) TruncateClause() string {
-	return "delete from"
 }
 
 // Returns "?"
@@ -84,10 +58,6 @@ func (d *SqliteDialect) QuotedTableForQuery(schema string, table string) string 
 
 func (d *SqliteDialect) IfSchemaNotExists(command, schema string) string {
 	return fmt.Sprintf("%s if not exists", command)
-}
-
-func (d *SqliteDialect) IfTableExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if exists", command)
 }
 
 func (d *SqliteDialect) IfTableNotExists(command, schema, table string) string {

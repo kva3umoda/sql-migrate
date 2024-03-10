@@ -105,7 +105,7 @@ func migrationFromFile(dir http.FileSystem, root string, info os.FileInfo) (*Mig
 	}
 	defer func() { _ = file.Close() }()
 
-	migration, err := ParseMigration(info.Name(), file)
+	migration, err := parseMigration(info.Name(), file)
 	if err != nil {
 		return nil, fmt.Errorf("Error while parsing %s: %w", info.Name(), err)
 	}
@@ -141,7 +141,7 @@ func (a AssetSource) FindMigrations() ([]*Migration, error) {
 				return nil, err
 			}
 
-			migration, err := ParseMigration(name, bytes.NewReader(file))
+			migration, err := parseMigration(name, bytes.NewReader(file))
 			if err != nil {
 				return nil, err
 			}
@@ -211,7 +211,7 @@ func (p PackrSource) FindMigrations() ([]*Migration, error) {
 				return nil, err
 			}
 
-			migration, err := ParseMigration(name, bytes.NewReader(file))
+			migration, err := parseMigration(name, bytes.NewReader(file))
 			if err != nil {
 				return nil, err
 			}
@@ -226,8 +226,8 @@ func (p PackrSource) FindMigrations() ([]*Migration, error) {
 	return migrations, nil
 }
 
-// ParseMigration Migration parsing
-func ParseMigration(id string, r io.ReadSeeker) (*Migration, error) {
+// parseMigration Migration parsing
+func parseMigration(id string, r io.ReadSeeker) (*Migration, error) {
 	m := &Migration{
 		Id: id,
 	}

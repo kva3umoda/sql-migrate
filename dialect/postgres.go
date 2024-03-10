@@ -7,8 +7,9 @@ package dialect
 import (
 	"fmt"
 	"strings"
-	"time"
 )
+
+var _ Dialect = (*PostgresDialect)(nil)
 
 type PostgresDialect struct {
 	suffix          string
@@ -35,7 +36,7 @@ func (d *PostgresDialect) ToSqlType(kind DataKind) string {
 		return "text"
 	}
 
-	panic("unsupported type")
+	panic(fmt.Sprintf("unsupported type: %d", kind))
 }
 
 // Returns suffix
@@ -43,44 +44,13 @@ func (d *PostgresDialect) CreateTableSuffix() string {
 	return d.suffix
 }
 
-func (d *PostgresDialect) CreateIndexSuffix() string {
-	return "using"
-}
-
-func (d *PostgresDialect) DropIndexSuffix() string {
-	return ""
-}
-
 func (d *PostgresDialect) TruncateClause() string {
 	return "truncate"
-}
-
-func (d *PostgresDialect) SleepClause(s time.Duration) string {
-	return fmt.Sprintf("pg_sleep(%f)", s.Seconds())
 }
 
 // Returns "$(i+1)"
 func (d *PostgresDialect) BindVar(i int) string {
 	return fmt.Sprintf("$%d", i+1)
-}
-
-func (d *PostgresDialect) InsertAutoIncrToTarget(exec SqlExecutor, insertSql string, target any, params ...any) error {
-	rows, err := exec.Query(insertSql, params...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return fmt.Errorf("No serial value returned for insert: %s Encountered error: %s", insertSql, rows.Err())
-	}
-	if err := rows.Scan(target); err != nil {
-		return err
-	}
-	if rows.Next() {
-		return fmt.Errorf("more than two serial value returned for insert: %s", insertSql)
-	}
-	return rows.Err()
 }
 
 func (d *PostgresDialect) QuoteField(f string) string {

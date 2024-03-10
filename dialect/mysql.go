@@ -6,7 +6,6 @@ package dialect
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -25,74 +24,41 @@ type MySQLDialect struct {
 
 func (d *MySQLDialect) QuerySuffix() string { return ";" }
 
-func (d *MySQLDialect) ToSqlType(val reflect.Kind) string {
-	switch val.Kind() {
-	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize)
-	case reflect.Bool:
+func (d *MySQLDialect) ToSqlType(kind DataKind) string {
+	switch kind {
+	case Bool:
 		return "boolean"
-	case reflect.Int8:
+	case Int8:
 		return "tinyint"
-	case reflect.Uint8:
+	case Uint8:
 		return "tinyint unsigned"
-	case reflect.Int16:
+	case Int16:
 		return "smallint"
-	case reflect.Uint16:
+	case Uint16:
 		return "smallint unsigned"
-	case reflect.Int, reflect.Int32:
+	case Int32:
 		return "int"
-	case reflect.Uint, reflect.Uint32:
+	case Uint32:
 		return "int unsigned"
-	case reflect.Int64:
+	case Int, Int64:
 		return "bigint"
-	case reflect.Uint64:
+	case Uint, Uint64:
 		return "bigint unsigned"
-	case reflect.Float64, reflect.Float32:
+	case Float64, Float32:
 		return "double"
-	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
-			return "mediumblob"
-		}
-	case reflect.String:
-		return "text"
-	}
-
-	switch val.Name() {
-	case "NullInt64":
-		return "bigint"
-	case "NullFloat64":
-		return "double"
-	case "NullBool":
-		return "tinyint"
-	case "Time":
+	case Datetime:
 		return "datetime"
-	}
-
-	if maxsize < 1 {
-		maxsize = 255
-	}
-
-	/* == About varchar(N) ==
-	 * N is number of characters.
-	 * A varchar column can store up to 65535 bytes.
-	 * Remember that 1 character is 3 bytes in utf-8 charset.
-	 * Also remember that each row can store up to 65535 bytes,
-	 * and you have some overheads, so it's not possible for a
-	 * varchar column to have 65535/3 characters really.
-	 * So it would be better to use 'text' type in stead of
-	 * large varchar type.
-	 */
-	if maxsize < 256 {
-		return fmt.Sprintf("varchar(%d)", maxsize)
-	} else {
+	case String:
 		return "text"
 	}
+
+	panic("unsupported type")
 }
 
 // Returns engine=%s charset=%s  based on values stored on struct
 func (d *MySQLDialect) CreateTableSuffix() string {
 	if d.Engine == "" || d.Encoding == "" {
-		msg := "gorp - undefined"
+		msg := "undefined"
 
 		if d.Engine == "" {
 			msg += " MySQLDialect.Engine"
@@ -103,19 +69,13 @@ func (d *MySQLDialect) CreateTableSuffix() string {
 		if d.Encoding == "" {
 			msg += " MySQLDialect.Encoding"
 		}
+
 		msg += ". Check that your MySQLDialect was correctly initialized when declared."
+
 		panic(msg)
 	}
 
 	return fmt.Sprintf(" engine=%s charset=%s", d.Engine, d.Encoding)
-}
-
-func (d *MySQLDialect) CreateIndexSuffix() string {
-	return "using"
-}
-
-func (d *MySQLDialect) DropIndexSuffix() string {
-	return "on"
 }
 
 func (d *MySQLDialect) TruncateClause() string {

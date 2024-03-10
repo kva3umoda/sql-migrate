@@ -6,7 +6,6 @@ package dialect
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -20,67 +19,44 @@ type SqlServerDialect struct {
 	Version string
 }
 
-func (d *SqlServerDialect) ToSqlType(val reflect.Kind) string {
-	switch val.Kind() {
-	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize)
-	case reflect.Bool:
+func (d *SqlServerDialect) ToSqlType(kind DataKind) string {
+	switch kind {
+	case Bool:
 		return "bit"
-	case reflect.Int8:
+	case Int8:
 		return "tinyint"
-	case reflect.Uint8:
+	case Uint8:
 		return "smallint"
-	case reflect.Int16:
+	case Int16:
 		return "smallint"
-	case reflect.Uint16:
+	case Uint16:
 		return "int"
-	case reflect.Int, reflect.Int32:
+	case Int, Int32:
 		return "int"
-	case reflect.Uint, reflect.Uint32:
+	case Uint, Uint32:
 		return "bigint"
-	case reflect.Int64:
+	case Int64:
 		return "bigint"
-	case reflect.Uint64:
+	case Uint64:
 		return "numeric(20,0)"
-	case reflect.Float32:
+	case Float32:
 		return "float(24)"
-	case reflect.Float64:
+	case Float64:
 		return "float(53)"
-	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
-			return "varbinary"
-		}
-	}
-
-	switch val.Name() {
-	case "NullInt64":
-		return "bigint"
-	case "NullFloat64":
-		return "float(53)"
-	case "NullBool":
-		return "bit"
-	case "NullTime", "Time":
+	case Datetime:
 		if d.Version == "2005" {
 			return "datetime"
 		}
+
 		return "datetime2"
+	case String:
+		return "nvarchar(255)"
 	}
 
-	if maxsize < 1 {
-		if d.Version == "2005" {
-			maxsize = 255
-		} else {
-			return fmt.Sprintf("nvarchar(max)")
-		}
-	}
-	return fmt.Sprintf("nvarchar(%d)", maxsize)
+	panic(fmt.Sprintf("unsupported type: %d", kind))
 }
 
 func (d *SqlServerDialect) CreateTableSuffix() string { return ";" }
-
-func (d *SqlServerDialect) TruncateClause() string {
-	return "truncate table"
-}
 
 // Returns "?"
 func (d *SqlServerDialect) BindVar(i int) string {
@@ -102,23 +78,16 @@ func (d *SqlServerDialect) QuerySuffix() string { return ";" }
 
 func (d *SqlServerDialect) IfSchemaNotExists(command, schema string) string {
 	s := fmt.Sprintf("if schema_id(N'%s') is null %s", schema, command)
-	return s
-}
 
-func (d *SqlServerDialect) IfTableExists(command, schema, table string) string {
-	var schema_clause string
-	if strings.TrimSpace(schema) != "" {
-		schema_clause = fmt.Sprintf("%s.", d.QuoteField(schema))
-	}
-	s := fmt.Sprintf("if object_id('%s%s') is not null %s", schema_clause, d.QuoteField(table), command)
 	return s
 }
 
 func (d *SqlServerDialect) IfTableNotExists(command, schema, table string) string {
-	var schema_clause string
+	var schemaClause string
 	if strings.TrimSpace(schema) != "" {
-		schema_clause = fmt.Sprintf("%s.", schema)
+		schemaClause = fmt.Sprintf("%s.", schema)
 	}
-	s := fmt.Sprintf("if object_id('%s%s') is null %s", schema_clause, table, command)
+
+	s := fmt.Sprintf("if object_id('%s%s') is null %s", schemaClause, table, command)
 	return s
 }

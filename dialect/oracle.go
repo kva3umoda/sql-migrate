@@ -6,52 +6,35 @@ package dialect
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
+
+var _ Dialect = (*OracleDialect)(nil)
 
 // Implementation of Dialect for Oracle databases.
 type OracleDialect struct{}
 
-func (d *OracleDialect) QuerySuffix() string { return "" }
+func (d *OracleDialect) QuerySuffix() string { return ";" }
 
-func (d *OracleDialect) ToSqlType(val reflect.Kind) string {
-	switch val.Kind() {
-	case reflect.Ptr:
-		return d.ToSqlType(val.Elem(), maxsize)
-	case reflect.Bool:
+func (d *OracleDialect) ToSqlType(kind DataKind) string {
+	switch kind {
+	case Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+	case Int, Int8, Int16, Int32, Uint, Uint8, Uint16, Uint32:
 		return "integer"
-	case reflect.Int64, reflect.Uint64:
+	case Int64, Uint64:
 		return "bigint"
-	case reflect.Float64:
+	case Float64:
 		return "double precision"
-	case reflect.Float32:
+	case Float32:
 		return "real"
-	case reflect.Slice:
-		if val.Elem().Kind() == reflect.Uint8 {
-			return "bytea"
-		}
-	}
-
-	switch val.Name() {
-	case "NullInt64":
-		return "bigint"
-	case "NullFloat64":
-		return "double precision"
-	case "NullBool":
-		return "boolean"
-	case "NullTime", "Time":
+	case Datetime:
 		return "timestamp with time zone"
+	case String:
+		return "varchar2(4000)"
 	}
 
-	if maxsize > 0 {
-		return fmt.Sprintf("varchar(%d)", maxsize)
-	} else {
-		return "text"
-	}
-
+	panic("unsupported type")
 }
 
 // Returns suffix
@@ -66,29 +49,6 @@ func (d *OracleDialect) TruncateClause() string {
 // Returns "$(i+1)"
 func (d *OracleDialect) BindVar(i int) string {
 	return fmt.Sprintf(":%d", i+1)
-}
-
-// After executing the insert uses the ColMap IdQuery to get the generated id
-func (d *OracleDialect) InsertQueryToTarget(exec SqlExecutor, insertSql, idSql string, target any, params ...any) error {
-	_, err := exec.Exec(insertSql, params...)
-	if err != nil {
-		return err
-	}
-	id, err := exec.SelectInt(idSql)
-	if err != nil {
-		return err
-	}
-	switch target.(type) {
-	case *int64:
-		*(target.(*int64)) = id
-	case *int32:
-		*(target.(*int32)) = int32(id)
-	case int:
-		*(target.(*int)) = int(id)
-	default:
-		return fmt.Errorf("Id field can be int, int32 or int64")
-	}
-	return nil
 }
 
 func (d *OracleDialect) QuoteField(f string) string {

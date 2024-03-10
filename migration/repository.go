@@ -20,9 +20,16 @@ const (
 	columnAppliedAt = "applied_at"
 )
 
+type transactionKey struct{}
+
 type Record struct {
 	Id        string
 	AppliedAt time.Time
+}
+
+type SqlExecutor interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 type Repository struct {
@@ -45,16 +52,25 @@ func NewRepository(db *sql.DB, dialect dialect.Dialect, schemaName, tableName st
 	}
 }
 
-func (r *Repository) CreateSchemaIfNotExists(ctx context.Context) error {
+func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, context.Context, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, ctx, err
+	}
+
+	return tx, context.WithValue(ctx, transactionKey{}, tx), nil
+}
+
+func (r *Repository) CreateTableIfNotExists(ctx context.Context) error {
 	query := &bytes.Buffer{}
 
 	if strings.TrimSpace(r.schemaName) != "" {
 		r.queryCreateSchemaIfNotExists(query, r.schemaName)
 	}
 
-	r.queryCreateTableIfNotExists(query, r.schemaName, r.tableName, columns)
+	r.queryCreateTableIfNotExists(query, r.schemaName, r.tableName)
 
-	_, err := r.Exec(ctx, query.String())
+	_, err := r.ExecContext(ctx, query.String())
 	if err != nil {
 		return err
 	}
@@ -62,21 +78,49 @@ func (r *Repository) CreateSchemaIfNotExists(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) ListMigration(ctx context.Context) ([]*Record, error) {
-	records := make([]*Record, 0, 10)
+func (r *Repository) SaveMigration(ctx context.Context, record Record) error {
+	query := fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (%s, %s)",
+		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
+		r.dialect.QuoteField(columnID),
+		r.dialect.QuoteField(columnAppliedAt),
+		r.dialect.BindVar(0),
+		r.dialect.BindVar(1),
+	)
+
+	_, err := r.ExecContext(ctx, query, record.Id, record.AppliedAt)
+
+	return err
+}
+
+func (r *Repository) DeleteMigration(ctx context.Context, id string) error {
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s",
+		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
+		r.dialect.QuoteField(columnID),
+		r.dialect.BindVar(0),
+	)
+
+	_, err := r.ExecContext(ctx, query, id)
+
+	return err
+}
+
+func (r *Repository) ListMigration(ctx context.Context) ([]Record, error) {
+	records := make([]Record, 0, 10)
 	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC",
 		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
 		r.dialect.QuoteField(columnID),
 	)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
+	var rec Record
+
 	for rows.Next() {
-		rec := new(Record)
 
 		err = rows.Scan(&rec.Id, &rec.AppliedAt)
 		if err != nil {
@@ -91,15 +135,24 @@ func (r *Repository) ListMigration(ctx context.Context) ([]*Record, error) {
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
-func (r *Repository) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+func (r *Repository) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	defer r.trace(time.Now(), query, args...)
 
-	res, err := r.db.ExecContext(ctx, query, args...)
+	res, err := r.use(ctx).ExecContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 
 	return res, nil
+}
+
+func (r *Repository) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	rows, err := r.use(ctx).QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
 }
 
 func (r *Repository) queryCreateSchemaIfNotExists(w io.StringWriter, schemaName string) {
@@ -109,31 +162,31 @@ func (r *Repository) queryCreateSchemaIfNotExists(w io.StringWriter, schemaName 
 	_, _ = w.WriteString(fmt.Sprintf(" %s;", schemaName))
 }
 
-func (r *Repository) queryCreateTableIfNotExists(w io.StringWriter, schemaName, tableName string, columns []Column) {
+func (r *Repository) queryCreateTableIfNotExists(w io.StringWriter, schemaName, tableName string) {
 	tableCreate := "create table"
 	_, _ = w.WriteString(r.dialect.IfTableNotExists(tableCreate, schemaName, tableName))
 	_, _ = w.WriteString(fmt.Sprintf(" %s (", r.dialect.QuotedTableForQuery(schemaName, tableName)))
 
-	for i, col := range columns {
-		if i > 0 {
-			_, _ = w.WriteString(", ")
-		}
+	stype := r.dialect.ToSqlType(dialect.String)
+	_, _ = w.WriteString(fmt.Sprintf("%s %s not null primary key", r.dialect.QuoteField(columnID), stype))
+	_, _ = w.WriteString(", ")
 
-		stype := r.dialect.ToSqlType(col.DataType)
-		_, _ = w.WriteString(fmt.Sprintf("%s %s", r.dialect.QuoteField(col.ColumnName), stype))
-
-		if col.IsPK {
-			_, _ = w.WriteString(" not null")
-		}
-
-		if col.IsPK {
-			_, _ = w.WriteString(" primary key")
-		}
-	}
+	stype = r.dialect.ToSqlType(dialect.Datetime)
+	_, _ = w.WriteString(fmt.Sprintf("%s %s not null", r.dialect.QuoteField(columnAppliedAt), stype))
 
 	_, _ = w.WriteString(") ")
 	_, _ = w.WriteString(r.dialect.CreateTableSuffix())
 	_, _ = w.WriteString(r.dialect.QuerySuffix())
+}
+
+// extract - extract transaction from context.
+func (r *Repository) use(ctx context.Context) SqlExecutor {
+	tx, ok := ctx.Value(transactionKey{}).(*sql.Tx)
+	if !ok {
+		return r.db
+	}
+
+	return tx
 }
 
 func (r *Repository) trace(started time.Time, query string, args ...any) {
