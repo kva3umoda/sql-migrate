@@ -7,24 +7,17 @@
 ## Features
 
 - Usable as a CLI tool or as a library
-- Supports SQLite, PostgreSQL, MySQL, MSSQL and Oracle databases (through [gorp](https://github.com/go-gorp/gorp))
+- Supports SQLite, PostgreSQL, ClickHouse, MySQL, MSSQL and Oracle databases
 - Can embed migrations into your application
 - Migrations are defined with SQL for full flexibility
 - Atomic migrations
 - Up/down migrations to allow rollback
 - Supports multiple database types in one project
-- Works great with other libraries such as [sqlx](https://jmoiron.github.io/sqlx/)
-- Supported on go1.13+
+- Supported on go1.21+
 
 ## Installation
 
-To install the library and command line program, use the following:
-
-```bash
-go get -v github.com/rubenv/sql-migrate/...
-```
-
-For Go version from 1.18, use:
+For Go version from 1.21, use:
 
 ```bash
 go install github.com/rubenv/sql-migrate/...@latest
@@ -74,7 +67,7 @@ production:
   table: migrations
 ```
 
-The `table` setting is optional and will default to `gorp_migrations`.
+The `table` setting is optional and will default to `migrations`.
 
 The environment that will be used can be specified with the `-env` flag (defaults to `development`).
 

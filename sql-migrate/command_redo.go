@@ -48,16 +48,15 @@ func (c *RedoCommand) Run(args []string) int {
 		return 1
 	}
 
-	db, dialect, err := GetConnection(env)
+	db, dialectName, err := GetConnection(env)
 	if err != nil {
 		ui.Error(err.Error())
 		return 1
 	}
 	defer db.Close()
 
-	source := migrate.FileMigrationSource{
-		Dir: env.Dir,
-	}
+	source := migrate.NewFileMigrationSource(env.Dir)
+	dialect, err := migrate.GetDialect(migrate.DialectName(dialectName))
 
 	migrations, _, err := migrate.PlanMigration(db, dialect, source, migrate.Down, 1)
 	if err != nil {

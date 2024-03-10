@@ -12,14 +12,17 @@ func ApplyMigrations(dir migrate.MigrationDirection, dryrun bool, limit int, ver
 		return fmt.Errorf("Could not parse config: %w", err)
 	}
 
-	db, dialect, err := GetConnection(env)
+	db, dialectName, err := GetConnection(env)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	source := migrate.FileMigrationSource{
-		Dir: env.Dir,
+	source := migrate.NewFileMigrationSource(env.Dir)
+
+	dialect, err := migrate.GetDialect(migrate.DialectName(dialectName))
+	if err != nil {
+		return err
 	}
 
 	if dryrun {

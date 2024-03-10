@@ -1,4 +1,4 @@
-module sql-migrate
+module github.com/kva3umoda/sql-migrate/sql-migrate
 
 go 1.21.0
 
