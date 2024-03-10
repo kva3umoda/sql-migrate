@@ -38,13 +38,14 @@ const (
 )
 
 var Dialects = map[DialectType]Dialect{
-	SQLite3:   &SqliteDialect{},
-	Postgres:  &PostgresDialect{},
-	MySQL:     &MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
-	MSSQL:     &SqlServerDialect{},
-	OCI8:      &OracleDialect{},
-	GoDrOr:    &OracleDialect{},
-	Snowflake: &SnowflakeDialect{},
+	SQLite3:    &SqliteDialect{},
+	Postgres:   &PostgresDialect{},
+	MySQL:      &MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
+	MSSQL:      &SqlServerDialect{},
+	OCI8:       &OracleDialect{},
+	GoDrOr:     &OracleDialect{},
+	Snowflake:  &SnowflakeDialect{},
+	ClickHouse: &ClickHouseDialect{},
 }
 
 // The Dialect interface encapsulates behaviors that differ across

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rubenv/sql-migrate/dialect"
-	"github.com/rubenv/sql-migrate/logger"
+	`github.com/kva3umoda/sql-migrate/dialect`
+	`github.com/kva3umoda/sql-migrate/logger`
 )
 
 const (

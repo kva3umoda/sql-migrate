@@ -19,7 +19,7 @@ import (
 
 	"github.com/go-gorp/gorp/v3"
 
-	"github.com/rubenv/sql-migrate/sqlparse"
+	`github.com/kva3umoda/sql-migrate/sqlparse`
 )
 
 type MigrationDirection int
