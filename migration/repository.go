@@ -15,6 +15,16 @@ import (
 	"github.com/rubenv/sql-migrate/logger"
 )
 
+const (
+	columnID        = "id"
+	columnAppliedAt = "applied_at"
+)
+
+type Record struct {
+	Id        string
+	AppliedAt time.Time
+}
+
 type Repository struct {
 	dialect    dialect.Dialect
 	db         *sql.DB
@@ -50,6 +60,33 @@ func (r *Repository) CreateSchemaIfNotExists(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (r *Repository) ListMigration(ctx context.Context) ([]*Record, error) {
+	records := make([]*Record, 0, 10)
+	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC",
+		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
+		r.dialect.QuoteField(columnID),
+	)
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rec := new(Record)
+
+		err = rows.Scan(&rec.Id, &rec.AppliedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, rec)
+	}
+
+	return records, nil
 }
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
