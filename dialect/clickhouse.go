@@ -1,5 +1,9 @@
 package dialect
 
+import (
+	`fmt`
+)
+
 var _ Dialect = (*ClickhouseDialect)(nil)
 
 type ClickhouseDialect struct {
@@ -16,25 +20,34 @@ func NewClickhouseDialect(clusterName, engine string) *ClickhouseDialect {
 
 func (c *ClickhouseDialect) QueryCreateMigrateSchema(schemaName string) string {
 	//TODO implement me
-	panic("implement me")
+	return ";"
 }
 
 func (c *ClickhouseDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
-	//TODO implement me
-	panic("implement me")
+	if c.clusterName != "" {
+		return fmt.Sprintf(
+			"CREATE TABLE IF NOT EXISTS %s ON CLUSTER %s (id String, applied_at DateTime) ENGINE = %s PRIMARY KEY(id);",
+			tableName, c.clusterName, c.engine,
+		)
+	}
+
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (id String, applied_at DateTime) ENGINE = %s PRIMARY KEY(id);",
+		tableName, c.engine,
+	)
 }
 
 func (c *ClickhouseDialect) QueryDeleteMigrate(schemaName, tableName string) string {
-	//TODO implement me
-	panic("implement me")
+	return ";"
 }
 
 func (c *ClickhouseDialect) QuerySelectMigrate(schemaName, tableName string) string {
-	//TODO implement me
-	panic("implement me")
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		tableName,
+	)
 }
 
 func (c *ClickhouseDialect) QueryInsertMigrate(schemaName, tableName string) string {
-	//TODO implement me
-	panic("implement me")
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES (?, ?)", tableName)
 }
