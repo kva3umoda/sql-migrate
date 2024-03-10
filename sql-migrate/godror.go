@@ -11,7 +11,7 @@ package main
 
 import (
 	_ "github.com/godror/godror"
-	migrate "github.com/rubenv/sql-migrate"
+	migrate "github.com/kva3umoda/sql-migrate"
 )
 
 func init() {

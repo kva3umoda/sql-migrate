@@ -3,7 +3,6 @@ package migrate
 import (
 	"sort"
 
-	//revive:disable-next-line:dot-imports
 	. "gopkg.in/check.v1"
 )
 
@@ -42,7 +41,7 @@ func (*ToApplyMigrateSuite) TestGetDone(c *C) {
 	toApply := toApplyMigrations(toapplyMigrations, "efg", Up)
 	c.Assert(toApply, HasLen, 0)
 
-	toApply = toApply(toapplyMigrations, "zzz", Up)
+	toApply = toApplyMigrations(toapplyMigrations, "zzz", Up)
 	c.Assert(toApply, HasLen, 0)
 }
 
@@ -71,7 +70,7 @@ func (*ToApplyMigrateSuite) TestDownAll(c *C) {
 	c.Assert(toApply[1], Equals, toapplyMigrations[1])
 	c.Assert(toApply[2], Equals, toapplyMigrations[0])
 
-	toApply = toApply(toapplyMigrations, "zzz", Down)
+	toApply = toApplyMigrations(toapplyMigrations, "zzz", Down)
 	c.Assert(toApply, HasLen, 3)
 	c.Assert(toApply[0], Equals, toapplyMigrations[2])
 	c.Assert(toApply[1], Equals, toapplyMigrations[1])

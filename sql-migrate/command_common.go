@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	migrate "github.com/rubenv/sql-migrate"
+	migrate "github.com/kva3umoda/sql-migrate"
 )
 
 func ApplyMigrations(dir migrate.MigrationDirection, dryrun bool, limit int, version int64) error {
