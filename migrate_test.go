@@ -729,8 +729,8 @@ func (s *SqliteMigrateSuite) TestGetMigrationDbMapWithDisableCreateTable(c *C) {
 	c.Assert(err, IsNil)
 }
 
-// If ms.DisableCreateTable == true, then the the migrations table should not be
-// created, regardless of the global migSet.DisableCreateTable setting.
+// If ms.CreateTable == true, then the the migrations table should not be
+// created, regardless of the global migSet.CreateTable setting.
 func (s *SqliteMigrateSuite) TestGetMigrationObjDbMapWithDisableCreateTableTrue(c *C) {
 	SetDisableCreateTable(false)
 	ms := MigrationSet{
@@ -752,8 +752,8 @@ func (s *SqliteMigrateSuite) TestGetMigrationObjDbMapWithDisableCreateTableTrue(
 	c.Assert(tableNameIfExists.Valid, Equals, false)
 }
 
-// If ms.DisableCreateTable == false, then the the migrations table should not be
-// created, regardless of the global migSet.DisableCreateTable setting.
+// If ms.CreateTable == false, then the the migrations table should not be
+// created, regardless of the global migSet.CreateTable setting.
 func (s *SqliteMigrateSuite) TestGetMigrationObjDbMapWithDisableCreateTableFalse(c *C) {
 	SetDisableCreateTable(true)
 	defer SetDisableCreateTable(false) // reset the global state when the test ends.

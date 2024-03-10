@@ -14,63 +14,50 @@ var _ Dialect = (*OracleDialect)(nil)
 // Implementation of Dialect for Oracle databases.
 type OracleDialect struct{}
 
-func (d *OracleDialect) QuerySuffix() string { return ";" }
-
-func (d *OracleDialect) ToSqlType(kind DataKind) string {
-	switch kind {
-	case Bool:
-		return "boolean"
-	case Int, Int8, Int16, Int32, Uint, Uint8, Uint16, Uint32:
-		return "integer"
-	case Int64, Uint64:
-		return "bigint"
-	case Float64:
-		return "double precision"
-	case Float32:
-		return "real"
-	case Datetime:
-		return "timestamp with time zone"
-	case String:
-		return "varchar2(4000)"
-	}
-
-	panic("unsupported type")
+func NewOracleDialect() *OracleDialect {
+	return &OracleDialect{}
 }
 
-// Returns suffix
-func (d *OracleDialect) CreateTableSuffix() string {
-	return ""
+func (d *OracleDialect) QueryCreateMigrateSchema(schemaName string) string {
+	return fmt.Sprintf(
+		"CREATE SCHEMA %s;",
+		schemaName)
 }
 
-func (d *OracleDialect) TruncateClause() string {
-	return "truncate"
+func (d *OracleDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"CREATE TABLE %s (id varchar2(255) primary key, applied_at timestamp not null);",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-// Returns "$(i+1)"
-func (d *OracleDialect) BindVar(i int) string {
-	return fmt.Sprintf(":%d", i+1)
+func (d *OracleDialect) QueryDeleteMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"DELETE FROM %s WHERE id = :1",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *OracleDialect) QuoteField(f string) string {
+func (d *OracleDialect) QuerySelectMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
+}
+
+func (d *OracleDialect) QueryInsertMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES (:1, :2)",
+		d.quotedTableForQuery(schemaName, tableName))
+}
+
+func (d *OracleDialect) quoteField(f string) string {
 	return `"` + strings.ToUpper(f) + `"`
 }
 
-func (d *OracleDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *OracleDialect) quotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
-		return d.QuoteField(table)
+		return d.quoteField(table)
 	}
 
-	return schema + "." + d.QuoteField(table)
-}
-
-func (d *OracleDialect) IfSchemaNotExists(command, schema string) string {
-	return command
-}
-
-func (d *OracleDialect) IfTableExists(command, schema, table string) string {
-	return command
-}
-
-func (d *OracleDialect) IfTableNotExists(command, schema, table string) string {
-	return command
+	return schema + "." + d.quoteField(table)
 }

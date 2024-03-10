@@ -11,55 +11,47 @@ import (
 var _ Dialect = (*SqliteDialect)(nil)
 
 type SqliteDialect struct {
-	suffix string
 }
 
-func (d *SqliteDialect) QuerySuffix() string { return ";" }
-
-func (d *SqliteDialect) ToSqlType(kind DataKind) string {
-	switch kind {
-	case Bool:
-		return "integer"
-	case Int, Int8, Int16, Int32, Int64, Uint, Uint8, Uint16, Uint32, Uint64:
-		return "integer"
-	case Float64, Float32:
-		return "real"
-	case Datetime:
-		return "datetime"
-	case String:
-		return "text"
-	}
-
-	panic(fmt.Sprintf("unsupported type: %d", kind))
+func NewSqliteDialect() *SqliteDialect {
+	return &SqliteDialect{}
 }
 
-// Returns suffix
-func (d *SqliteDialect) CreateTableSuffix() string {
-	return d.suffix
+func (d *SqliteDialect) QueryCreateMigrateSchema(_ string) string {
+	return ";"
 }
 
-func (d *SqliteDialect) DropIndexSuffix() string {
-	return ""
+func (d *SqliteDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (id text primary key, applied_at datetime not null);",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-// Returns "?"
-func (d *SqliteDialect) BindVar(i int) string {
-	return "?"
+func (d *SqliteDialect) QueryDeleteMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"DELETE FROM %s WHERE id = ?",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *SqliteDialect) QuoteField(f string) string {
+func (d *SqliteDialect) QuerySelectMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
+}
+
+func (d *SqliteDialect) QueryInsertMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES (?, ?)",
+		d.quotedTableForQuery(schemaName, tableName))
+}
+
+func (d *SqliteDialect) quoteField(f string) string {
 	return `"` + f + `"`
 }
 
 // sqlite does not have schemas like PostgreSQL does, so just escape it like normal
-func (d *SqliteDialect) QuotedTableForQuery(schema string, table string) string {
-	return d.QuoteField(table)
-}
-
-func (d *SqliteDialect) IfSchemaNotExists(command, schema string) string {
-	return fmt.Sprintf("%s if not exists", command)
-}
-
-func (d *SqliteDialect) IfTableNotExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if not exists", command)
+func (d *SqliteDialect) quotedTableForQuery(_ string, table string) string {
+	return d.quoteField(table)
 }

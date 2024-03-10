@@ -130,11 +130,11 @@ func TestMySQLDialect(t *testing.T) {
 		expect(dialect.BindVar(0)).To(matchers.Equal("?"))
 	})
 
-	o.Spec("QuoteField", func(expect expect.Expectation, dialect gorp.MySQLDialect) {
+	o.Spec("quoteField", func(expect expect.Expectation, dialect gorp.MySQLDialect) {
 		expect(dialect.QuoteField("foo")).To(matchers.Equal("`foo`"))
 	})
 
-	o.Group("QuotedTableForQuery", func() {
+	o.Group("quotedTableForQuery", func() {
 		o.Spec("using the default schema", func(expect expect.Expectation, dialect gorp.MySQLDialect) {
 			expect(dialect.QuotedTableForQuery("", "foo")).To(matchers.Equal("`foo`"))
 		})

@@ -12,70 +12,52 @@ import (
 var _ Dialect = (*SnowflakeDialect)(nil)
 
 type SnowflakeDialect struct {
-	suffix          string
-	LowercaseFields bool
 }
 
-func (d *SnowflakeDialect) QuerySuffix() string { return ";" }
-
-func (d *SnowflakeDialect) ToSqlType(kind DataKind) string {
-	switch kind {
-	case Bool:
-		return "boolean"
-	case Int, Int8, Int16, Int32, Uint, Uint8, Uint16, Uint32:
-		return "integer"
-	case Int64, Uint64:
-		return "bigint"
-	case Float64:
-		return "double precision"
-	case Float32:
-		return "real"
-	case Datetime:
-		return "timestamp with time zone"
-	case String:
-		return "varchar(4000)"
-	}
-
-	panic(fmt.Sprintf("unsupported type: %d", kind))
+func NewSnowflakeDialect() *SnowflakeDialect {
+	return &SnowflakeDialect{}
 }
 
-// Returns suffix
-func (d *SnowflakeDialect) CreateTableSuffix() string {
-	return d.suffix
+func (d *SnowflakeDialect) QueryCreateMigrateSchema(schemaName string) string {
+	return fmt.Sprintf(
+		"CREATE SCHEMA IF NOT EXISTS %s;",
+		schemaName)
 }
 
-func (d *SnowflakeDialect) TruncateClause() string {
-	return "truncate"
+func (d *SnowflakeDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (id varchar(255) primary key, applied_at timestamp not null);",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-// Returns "$(i+1)"
-func (d *SnowflakeDialect) BindVar(i int) string {
-	return "?"
+func (d *SnowflakeDialect) QueryDeleteMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"DELETE FROM %s WHERE id = ?",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *SnowflakeDialect) QuoteField(f string) string {
-	if d.LowercaseFields {
-		return `"` + strings.ToLower(f) + `"`
-	}
+func (d *SnowflakeDialect) QuerySelectMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
+}
+
+func (d *SnowflakeDialect) QueryInsertMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES (?, ?)",
+		d.quotedTableForQuery(schemaName, tableName))
+}
+
+func (d *SnowflakeDialect) quoteField(f string) string {
 	return `"` + f + `"`
 }
 
-func (d *SnowflakeDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *SnowflakeDialect) quotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
-		return d.QuoteField(table)
+		return d.quoteField(table)
 	}
 
-	return schema + "." + d.QuoteField(table)
-}
-
-func (d *SnowflakeDialect) IfSchemaNotExists(command, schema string) string {
-	return fmt.Sprintf("%s if not exists", command)
-}
-
-func (d *SnowflakeDialect) IfTableExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if exists", command)
-}
-
-func (d *SnowflakeDialect) IfTableNotExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if not exists", command)
+	return schema + "." + d.quoteField(table)
 }

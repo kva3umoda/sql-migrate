@@ -101,7 +101,7 @@ func TestSnowflakeDialect(t *testing.T) {
 		expect(dialect.BindVar(4)).To(matchers.Equal("?"))
 	})
 
-	o.Group("QuoteField", func() {
+	o.Group("quoteField", func() {
 		o.Spec("By default, case is preserved", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
 			expect(dialect.QuoteField("Foo")).To(matchers.Equal(`"Foo"`))
 			expect(dialect.QuoteField("bar")).To(matchers.Equal(`"bar"`))
@@ -119,7 +119,7 @@ func TestSnowflakeDialect(t *testing.T) {
 		})
 	})
 
-	o.Group("QuotedTableForQuery", func() {
+	o.Group("quotedTableForQuery", func() {
 		o.Spec("using the default schema", func(expect expect.Expectation, dialect gorp.SnowflakeDialect) {
 			expect(dialect.QuotedTableForQuery("", "foo")).To(matchers.Equal(`"foo"`))
 		})

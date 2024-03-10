@@ -1,14 +1,11 @@
 package migrate
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io"
 	"reflect"
-	"strings"
 	"time"
 
 	`github.com/kva3umoda/sql-migrate/dialect`
@@ -61,16 +58,21 @@ func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, context.Context, err
 	return tx, context.WithValue(ctx, transactionKey{}, tx), nil
 }
 
-func (r *Repository) CreateTableIfNotExists(ctx context.Context) error {
-	query := &bytes.Buffer{}
+func (r *Repository) CreateSchema(ctx context.Context) error {
+	query := r.dialect.QueryCreateMigrateSchema(r.schemaName)
 
-	if strings.TrimSpace(r.schemaName) != "" {
-		r.queryCreateSchemaIfNotExists(query, r.schemaName)
+	_, err := r.ExecContext(ctx, query)
+	if err != nil {
+		return err
 	}
 
-	r.queryCreateTableIfNotExists(query, r.schemaName, r.tableName)
+	return nil
+}
 
-	_, err := r.ExecContext(ctx, query.String())
+func (r *Repository) CreateTable(ctx context.Context) error {
+	query := r.dialect.QueryCreateMigrateTable(r.schemaName, r.tableName)
+
+	_, err := r.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -79,26 +81,14 @@ func (r *Repository) CreateTableIfNotExists(ctx context.Context) error {
 }
 
 func (r *Repository) SaveMigration(ctx context.Context, record Record) error {
-	query := fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (%s, %s)",
-		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
-		r.dialect.QuoteField(columnID),
-		r.dialect.QuoteField(columnAppliedAt),
-		r.dialect.BindVar(0),
-		r.dialect.BindVar(1),
-	)
-
+	query := r.dialect.QueryInsertMigrate(r.schemaName, r.tableName)
 	_, err := r.ExecContext(ctx, query, record.Id, record.AppliedAt)
 
 	return err
 }
 
 func (r *Repository) DeleteMigration(ctx context.Context, id string) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s",
-		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
-		r.dialect.QuoteField(columnID),
-		r.dialect.BindVar(0),
-	)
-
+	query := r.dialect.QueryDeleteMigrate(r.schemaName, r.tableName)
 	_, err := r.ExecContext(ctx, query, id)
 
 	return err
@@ -106,10 +96,7 @@ func (r *Repository) DeleteMigration(ctx context.Context, id string) error {
 
 func (r *Repository) ListMigration(ctx context.Context) ([]Record, error) {
 	records := make([]Record, 0, 10)
-	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC",
-		r.dialect.QuotedTableForQuery(r.schemaName, r.tableName),
-		r.dialect.QuoteField(columnID),
-	)
+	query := r.dialect.QuerySelectMigrate(r.schemaName, r.tableName)
 
 	rows, err := r.QueryContext(ctx, query)
 	if err != nil {
@@ -153,30 +140,6 @@ func (r *Repository) QueryContext(ctx context.Context, query string, args ...any
 	}
 
 	return rows, nil
-}
-
-func (r *Repository) queryCreateSchemaIfNotExists(w io.StringWriter, schemaName string) {
-	schemaCreate := "create schema"
-
-	_, _ = w.WriteString(r.dialect.IfSchemaNotExists(schemaCreate, schemaName))
-	_, _ = w.WriteString(fmt.Sprintf(" %s;", schemaName))
-}
-
-func (r *Repository) queryCreateTableIfNotExists(w io.StringWriter, schemaName, tableName string) {
-	tableCreate := "create table"
-	_, _ = w.WriteString(r.dialect.IfTableNotExists(tableCreate, schemaName, tableName))
-	_, _ = w.WriteString(fmt.Sprintf(" %s (", r.dialect.QuotedTableForQuery(schemaName, tableName)))
-
-	stype := r.dialect.ToSqlType(dialect.String)
-	_, _ = w.WriteString(fmt.Sprintf("%s %s not null primary key", r.dialect.QuoteField(columnID), stype))
-	_, _ = w.WriteString(", ")
-
-	stype = r.dialect.ToSqlType(dialect.Datetime)
-	_, _ = w.WriteString(fmt.Sprintf("%s %s not null", r.dialect.QuoteField(columnAppliedAt), stype))
-
-	_, _ = w.WriteString(") ")
-	_, _ = w.WriteString(r.dialect.CreateTableSuffix())
-	_, _ = w.WriteString(r.dialect.QuerySuffix())
 }
 
 // extract - extract transaction from context.

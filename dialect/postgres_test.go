@@ -109,7 +109,7 @@ func TestPostgresDialect(t *testing.T) {
 		expect(dialect.BindVar(4)).To(matchers.Equal("$5"))
 	})
 
-	o.Group("QuoteField", func() {
+	o.Group("quoteField", func() {
 		o.Spec("By default, case is preserved", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
 			expect(dialect.QuoteField("Foo")).To(matchers.Equal(`"Foo"`))
 			expect(dialect.QuoteField("bar")).To(matchers.Equal(`"bar"`))
@@ -127,7 +127,7 @@ func TestPostgresDialect(t *testing.T) {
 		})
 	})
 
-	o.Group("QuotedTableForQuery", func() {
+	o.Group("quotedTableForQuery", func() {
 		o.Spec("using the default schema", func(expect expect.Expectation, dialect gorp.PostgresDialect) {
 			expect(dialect.QuotedTableForQuery("", "foo")).To(matchers.Equal(`"foo"`))
 		})

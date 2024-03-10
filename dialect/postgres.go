@@ -12,70 +12,52 @@ import (
 var _ Dialect = (*PostgresDialect)(nil)
 
 type PostgresDialect struct {
-	suffix          string
-	LowercaseFields bool
 }
 
-func (d *PostgresDialect) QuerySuffix() string { return ";" }
-
-func (d *PostgresDialect) ToSqlType(kind DataKind) string {
-	switch kind {
-	case Bool:
-		return "boolean"
-	case Int, Int8, Int16, Int32, Uint, Uint8, Uint16, Uint32:
-		return "integer"
-	case Int64, Uint64:
-		return "bigint"
-	case Float64:
-		return "double precision"
-	case Float32:
-		return "real"
-	case Datetime:
-		return "timestamp with time zone"
-	case String:
-		return "text"
-	}
-
-	panic(fmt.Sprintf("unsupported type: %d", kind))
+func NewPostgresDialect() *PostgresDialect {
+	return &PostgresDialect{}
 }
 
-// Returns suffix
-func (d *PostgresDialect) CreateTableSuffix() string {
-	return d.suffix
+func (d *PostgresDialect) QueryCreateMigrateSchema(schemaName string) string {
+	return fmt.Sprintf(
+		"CREATE SCHEMA IF NOT EXISTS %s;",
+		schemaName)
 }
 
-func (d *PostgresDialect) TruncateClause() string {
-	return "truncate"
+func (d *PostgresDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (id text primary key, applied_at timestamp without time zone not null);",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-// Returns "$(i+1)"
-func (d *PostgresDialect) BindVar(i int) string {
-	return fmt.Sprintf("$%d", i+1)
+func (d *PostgresDialect) QueryDeleteMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"DELETE FROM %s WHERE id = $1",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *PostgresDialect) QuoteField(f string) string {
-	if d.LowercaseFields {
-		return `"` + strings.ToLower(f) + `"`
-	}
+func (d *PostgresDialect) QuerySelectMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
+}
+
+func (d *PostgresDialect) QueryInsertMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES ($1, $2)",
+		d.quotedTableForQuery(schemaName, tableName))
+}
+
+func (d *PostgresDialect) quoteField(f string) string {
 	return `"` + f + `"`
 }
 
-func (d *PostgresDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *PostgresDialect) quotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
-		return d.QuoteField(table)
+		return d.quoteField(table)
 	}
 
-	return schema + "." + d.QuoteField(table)
-}
-
-func (d *PostgresDialect) IfSchemaNotExists(command, schema string) string {
-	return fmt.Sprintf("%s if not exists", command)
-}
-
-func (d *PostgresDialect) IfTableExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if exists", command)
-}
-
-func (d *PostgresDialect) IfTableNotExists(command, schema, table string) string {
-	return fmt.Sprintf("%s if not exists", command)
+	return schema + "." + d.quoteField(table)
 }

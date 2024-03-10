@@ -13,81 +13,60 @@ import (
 // Use gorp.SqlServerDialect{"2005"} for legacy datatypes.
 // Tested with driver: github.com/denisenkom/go-mssqldb
 
-type SqlServerDialect struct {
+var _ Dialect = (*SnowflakeDialect)(nil)
 
-	// If set to "2005" legacy datatypes will be used
-	Version string
+type SqlServerDialect struct {
 }
 
-func (d *SqlServerDialect) ToSqlType(kind DataKind) string {
-	switch kind {
-	case Bool:
-		return "bit"
-	case Int8:
-		return "tinyint"
-	case Uint8:
-		return "smallint"
-	case Int16:
-		return "smallint"
-	case Uint16:
-		return "int"
-	case Int, Int32:
-		return "int"
-	case Uint, Uint32:
-		return "bigint"
-	case Int64:
-		return "bigint"
-	case Uint64:
-		return "numeric(20,0)"
-	case Float32:
-		return "float(24)"
-	case Float64:
-		return "float(53)"
-	case Datetime:
-		if d.Version == "2005" {
-			return "datetime"
-		}
+func NewSqlServerDialect() *SqlServerDialect {
+	return &SqlServerDialect{}
+}
 
-		return "datetime2"
-	case String:
-		return "nvarchar(255)"
+func (d *SqlServerDialect) QueryCreateMigrateSchema(schemaName string) string {
+	return fmt.Sprintf(
+		"if schema_id(N'%s') is null CREATE SCHEMA IF NOT EXISTS %s;",
+		schemaName, schemaName)
+}
+
+func (d *SqlServerDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
+	var schemaClause string
+	if strings.TrimSpace(schemaName) != "" {
+		schemaClause = fmt.Sprintf("%s.", schemaName)
 	}
 
-	panic(fmt.Sprintf("unsupported type: %d", kind))
+	return fmt.Sprintf(
+		"if object_id('%s%s') is null CREATE TABLE IF NOT EXISTS %s (id nvarchar(255) primary key, applied_at datetime2 not null);",
+		schemaClause, tableName,
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *SqlServerDialect) CreateTableSuffix() string { return ";" }
-
-// Returns "?"
-func (d *SqlServerDialect) BindVar(i int) string {
-	return "?"
+func (d *SqlServerDialect) QueryDeleteMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"DELETE FROM %s WHERE id = ?",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
 }
 
-func (d *SqlServerDialect) QuoteField(f string) string {
+func (d *SqlServerDialect) QuerySelectMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf(
+		"SELECT * FROM %s ORDER BY id ASC",
+		d.quotedTableForQuery(schemaName, tableName),
+	)
+}
+
+func (d *SqlServerDialect) QueryInsertMigrate(schemaName, tableName string) string {
+	return fmt.Sprintf("INSERT INTO %s(id, applied_at) VALUES (?, ?)",
+		d.quotedTableForQuery(schemaName, tableName))
+}
+
+func (d *SqlServerDialect) quoteField(f string) string {
 	return "[" + strings.Replace(f, "]", "]]", -1) + "]"
 }
 
-func (d *SqlServerDialect) QuotedTableForQuery(schema string, table string) string {
+func (d *SqlServerDialect) quotedTableForQuery(schema string, table string) string {
 	if strings.TrimSpace(schema) == "" {
-		return d.QuoteField(table)
+		return d.quoteField(table)
 	}
-	return d.QuoteField(schema) + "." + d.QuoteField(table)
-}
-
-func (d *SqlServerDialect) QuerySuffix() string { return ";" }
-
-func (d *SqlServerDialect) IfSchemaNotExists(command, schema string) string {
-	s := fmt.Sprintf("if schema_id(N'%s') is null %s", schema, command)
-
-	return s
-}
-
-func (d *SqlServerDialect) IfTableNotExists(command, schema, table string) string {
-	var schemaClause string
-	if strings.TrimSpace(schema) != "" {
-		schemaClause = fmt.Sprintf("%s.", schema)
-	}
-
-	s := fmt.Sprintf("if object_id('%s%s') is null %s", schemaClause, table, command)
-	return s
+	return d.quoteField(schema) + "." + d.quoteField(table)
 }
