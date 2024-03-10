@@ -1,7 +1,3 @@
-// Copyright 2012 James Cooper. All rights reserved.
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
-
 package dialect
 
 import (
@@ -9,11 +5,7 @@ import (
 	"strings"
 )
 
-// Implementation of Dialect for Microsoft SQL Server databases.
-// Use gorp.SqlServerDialect{"2005"} for legacy datatypes.
-// Tested with driver: github.com/denisenkom/go-mssqldb
-
-var _ Dialect = (*SnowflakeDialect)(nil)
+var _ Dialect = (*SqlServerDialect)(nil)
 
 type SqlServerDialect struct {
 }

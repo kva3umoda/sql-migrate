@@ -1,7 +1,3 @@
-// Copyright 2012 James Cooper. All rights reserved.
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
-
 package dialect
 
 import (
@@ -11,6 +7,7 @@ import (
 
 var _ Dialect = (*PostgresDialect)(nil)
 
+// PostgresDialect Implementation of Dialect for PostgreSQL databases.
 type PostgresDialect struct {
 }
 

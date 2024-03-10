@@ -44,12 +44,13 @@ func (s *SqliteMigrateSuite) SetUpTest(c *C) {
 }
 
 func (s *SqliteMigrateSuite) TestRunMigration(c *C) {
-	migrations := &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:1],
-	}
+	migrations := NewMemoryMigrationSource(sqliteMigrations[:1])
+
+	dialect, err := GetDialect("sqlite3")
+	c.Assert(err, IsNil)
 
 	// Executes one migration
-	n, err := Exec(s.Db, "sqlite3", migrations, Up)
+	n, err := Exec(s.Db, dialect, migrations, Up)
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 1)
 
@@ -58,28 +59,27 @@ func (s *SqliteMigrateSuite) TestRunMigration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Shouldn't apply migration again
-	n, err = Exec(s.Db, "sqlite3", migrations, Up)
+	n, err = Exec(s.Db, dialect, migrations, Up)
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 0)
 }
 
 func (s *SqliteMigrateSuite) TestRunMigrationEscapeTable(c *C) {
-	migrations := &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:1],
-	}
+	migrations := NewMemoryMigrationSource(sqliteMigrations[:1])
 
 	SetTable(`my migrations`)
 
+	dialect, err := GetDialect("sqlite3")
+	c.Assert(err, IsNil)
+
 	// Executes one migration
-	n, err := Exec(s.Db, "sqlite3", migrations, Up)
+	n, err := Exec(s.Db, dialect, migrations, Up)
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 1)
 }
 
 func (s *SqliteMigrateSuite) TestMigrateMultiple(c *C) {
-	migrations := &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:2],
-	}
+	migrations := NewMemoryMigrationSource(sqliteMigrations[:1])
 
 	// Executes two migrations
 	n, err := Exec(s.Db, "sqlite3", migrations, Up)
@@ -92,9 +92,7 @@ func (s *SqliteMigrateSuite) TestMigrateMultiple(c *C) {
 }
 
 func (s *SqliteMigrateSuite) TestMigrateIncremental(c *C) {
-	migrations := &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:1],
-	}
+	migrations := NewMemoryMigrationSource(sqliteMigrations[:1])
 
 	// Executes one migration
 	n, err := Exec(s.Db, "sqlite3", migrations, Up)
@@ -102,9 +100,8 @@ func (s *SqliteMigrateSuite) TestMigrateIncremental(c *C) {
 	c.Assert(n, Equals, 1)
 
 	// Execute a new migration
-	migrations = &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:2],
-	}
+	migrations = NewMemoryMigrationSource(sqliteMigrations[:2])
+
 	n, err = Exec(s.Db, "sqlite3", migrations, Up)
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 1)
@@ -623,9 +620,7 @@ func (s *SqliteMigrateSuite) TestPlanMigrationToVersion(c *C) {
 // TestExecWithUnknownMigrationInDatabase makes sure that problems found with planning the
 // migrations are propagated and returned by Exec.
 func (s *SqliteMigrateSuite) TestExecWithUnknownMigrationInDatabase(c *C) {
-	migrations := &MemoryMigrationSource{
-		Migrations: sqliteMigrations[:2],
-	}
+	migrations := NewMemoryMigrationSource(sqliteMigrations[:1])
 
 	// Executes two migrations
 	n, err := Exec(s.Db, "sqlite3", migrations, Up)

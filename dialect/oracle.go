@@ -1,7 +1,3 @@
-// Copyright 2012 James Cooper. All rights reserved.
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
-
 package dialect
 
 import (
@@ -11,7 +7,7 @@ import (
 
 var _ Dialect = (*OracleDialect)(nil)
 
-// Implementation of Dialect for Oracle databases.
+// OracleDialect Implementation of Dialect for Oracle databases.
 type OracleDialect struct{}
 
 func NewOracleDialect() *OracleDialect {

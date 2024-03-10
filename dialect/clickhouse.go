@@ -3,12 +3,14 @@ package dialect
 var _ Dialect = (*ClickhouseDialect)(nil)
 
 type ClickhouseDialect struct {
-	engine string
+	engine      string
+	clusterName string
 }
 
-func NewClickhouseDialect(engine string) *ClickhouseDialect {
+func NewClickhouseDialect(clusterName, engine string) *ClickhouseDialect {
 	return &ClickhouseDialect{
-		engine: engine,
+		clusterName: clusterName,
+		engine:      engine,
 	}
 }
 

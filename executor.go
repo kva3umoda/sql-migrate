@@ -11,10 +11,10 @@ import (
 	`github.com/kva3umoda/sql-migrate/dialect`
 )
 
-type Direction int
+type MigrationDirection int
 
 const (
-	Up Direction = iota + 1
+	Up MigrationDirection = iota + 1
 	Down
 )
 
@@ -29,7 +29,7 @@ type MigrationExecutor struct {
 	// SchemaName schema that the migration table be referenced.
 	SchemaName string
 	// IgnoreUnknown skips the check to see if there is a migration
-	// ran in the database that is not in Source.
+	// ran in the database that is not in MigrationSource.
 	//
 	// This should be used sparingly as it is removing a safety check.
 	IgnoreUnknown bool
@@ -37,34 +37,38 @@ type MigrationExecutor struct {
 	CreateTable bool
 	// CreateSchema disable the creation of the migration schema
 	CreateSchema bool
+
+	Logger Logger
 }
 
-type MigrationRecord struct {
-	Id        string    `db:"id"`
-	AppliedAt time.Time `db:"applied_at"`
-}
-
-// getTableName returns a parametrized Migration object
-func (ex *MigrationExecutor) getTableName() string {
-	if ex.TableName == "" {
-		return defaultTableName
+func NewMigrationExecutor() *MigrationExecutor {
+	return &MigrationExecutor{
+		TableName:     defaultTableName,
+		SchemaName:    "",
+		IgnoreUnknown: false,
+		CreateTable:   false,
+		CreateSchema:  false,
+		Logger:        DefaultLogger(),
 	}
-
-	return ex.TableName
 }
 
 // Exec Returns the number of applied migrations.
-func (ex *MigrationExecutor) Exec(db *sql.DB, dialect dialect.DialectType, m Source, dir Direction) (int, error) {
-	return ex.ExecMaxContext(context.Background(), db, dialect, m, dir, 0)
+func (ex *MigrationExecutor) Exec(
+	db *sql.DB,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
+) (int, error) {
+	return ex.ExecMaxContext(context.Background(), db, dialect, source, dir, 0)
 }
 
 // ExecContext Returns the number of applied migrations.
 func (ex *MigrationExecutor) ExecContext(
 	ctx context.Context,
 	db *sql.DB,
-	dialect dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	m MigrationSource,
+	dir MigrationDirection,
 ) (int, error) {
 	return ex.ExecMaxContext(ctx, db, dialect, m, dir, 0)
 }
@@ -72,9 +76,9 @@ func (ex *MigrationExecutor) ExecContext(
 // ExecMax Returns the number of applied migrations.
 func (ex *MigrationExecutor) ExecMax(
 	db *sql.DB,
-	dialect dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	m MigrationSource,
+	dir MigrationDirection,
 	max int,
 ) (int, error) {
 	return ex.ExecMaxContext(context.Background(), db, dialect, m, dir, max)
@@ -84,59 +88,123 @@ func (ex *MigrationExecutor) ExecMax(
 func (ex *MigrationExecutor) ExecMaxContext(
 	ctx context.Context,
 	db *sql.DB,
-	dialect dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	max int,
 ) (int, error) {
-	migrations, rep, err := ex.PlanMigration(ctx, db, dialect, m, dir, max)
+	migrations, rep, err := ex.PlanMigration(ctx, db, dialect, source, dir, max)
 	if err != nil {
 		return 0, err
 	}
 
-	return ex.applyMigrations(ctx, dir, migrations, rep)
+	return ex.applyMigrations(ctx, dir, rep, migrations)
 }
 
 // ExecVersion Returns the number of applied migrations.
 func (ex *MigrationExecutor) ExecVersion(
 	db *sql.DB,
-	dialect dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	version int64,
 ) (int, error) {
-	return ex.ExecVersionContext(context.Background(), db, dialect, m, dir, version)
+	return ex.ExecVersionContext(context.Background(), db, dialect, source, dir, version)
 }
 
 func (ex *MigrationExecutor) ExecVersionContext(
 	ctx context.Context,
 	db *sql.DB,
-	dialect dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	version int64,
 ) (int, error) {
-	migrations, rep, err := ex.PlanMigrationToVersion(ctx, db, dialect, m, dir, version)
+	migrations, rep, err := ex.PlanMigrationToVersion(ctx, db, dialect, source, dir, version)
 	if err != nil {
 		return 0, err
 	}
 
-	return ex.applyMigrations(ctx, dir, migrations, rep)
+	return ex.applyMigrations(ctx, dir, rep, migrations)
+}
+
+// SkipMax Skip a set of migrations
+// Will skip at most `max` migrations. Pass 0 for no limit.
+// Returns the number of skipped migrations.
+func (ex *MigrationExecutor) SkipMax(ctx context.Context, db *sql.DB, dialect dialect.Dialect, m MigrationSource, dir MigrationDirection, max int) (int, error) {
+	migrations, rep, err := ex.PlanMigration(ctx, db, dialect, m, dir, max)
+	if err != nil {
+		return 0, err
+	}
+
+	// Skip migrations
+	applied := 0
+
+	for _, migration := range migrations {
+
+		err := ex.saveMigration(rep, migration)
+		if err != nil {
+			ex.Logger.Errorf("Failed to save migration %s: %v", migration.Id, err)
+
+			return applied, err
+		}
+
+		ex.Logger.Infof("Skipped migration %s", migration.Id)
+
+		applied++
+	}
+
+	return applied, nil
+}
+
+func (ex *MigrationExecutor) saveMigration(rep *MigrationRepository, migration *PlannedMigration) (err error) {
+	ctx := context.Background()
+	if !migration.DisableTransaction {
+		var tx *sql.Tx
+		tx, ctx, err = rep.BeginTx(ctx)
+		if err != nil {
+			return newTxError(migration, err)
+		}
+
+		defer func() {
+			if err != nil {
+				_ = tx.Rollback()
+
+				return
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				err = newTxError(migration, err)
+			}
+		}()
+	}
+
+	err = rep.SaveMigration(ctx, MigrationRecord{Id: migration.Id, AppliedAt: time.Now().UTC()})
+	if err != nil {
+		return newTxError(migration, err)
+	}
+
+	return nil
 }
 
 // Applies the planned migrations and returns the number of applied migrations.
 func (ex *MigrationExecutor) applyMigrations(
 	ctx context.Context,
-	dir Direction,
+	dir MigrationDirection,
+	rep *MigrationRepository,
 	migrations []*PlannedMigration,
-	rep *Repository,
 ) (int, error) {
 	applied := 0
 	for _, migration := range migrations {
 		err := ex.applyMigration(ctx, dir, rep, migration)
 		if err != nil {
+			ex.Logger.Errorf("Failed to apply migration %s: %v", migration.Id, err)
+
 			return applied, err
 		}
+
+		ex.Logger.Infof("Applied migration %s", migration.Id)
 
 		applied++
 	}
@@ -146,8 +214,8 @@ func (ex *MigrationExecutor) applyMigrations(
 
 func (ex *MigrationExecutor) applyMigration(
 	ctx context.Context,
-	dir Direction,
-	rep *Repository,
+	dir MigrationDirection,
+	rep *MigrationRepository,
 	migration *PlannedMigration,
 ) (err error) {
 	if !migration.DisableTransaction {
@@ -185,7 +253,7 @@ func (ex *MigrationExecutor) applyMigration(
 
 	switch dir {
 	case Up:
-		err = rep.SaveMigration(ctx, Record{Id: migration.Id, AppliedAt: time.Now()})
+		err = rep.SaveMigration(ctx, MigrationRecord{Id: migration.Id, AppliedAt: time.Now().UTC()})
 	case Down:
 		err = rep.DeleteMigration(ctx, migration.Id)
 	default:
@@ -203,42 +271,42 @@ func (ex *MigrationExecutor) applyMigration(
 func (ex *MigrationExecutor) PlanMigration(
 	ctx context.Context,
 	db *sql.DB,
-	dialectType dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	max int,
-) ([]*PlannedMigration, *Repository, error) {
-	return ex.planMigrationCommon(ctx, db, dialectType, m, dir, max, -1)
+) ([]*PlannedMigration, *MigrationRepository, error) {
+	return ex.planMigrationCommon(ctx, db, dialect, source, dir, max, -1)
 }
 
 // PlanMigrationToVersion Plan a migration to version.
 func (ex *MigrationExecutor) PlanMigrationToVersion(
 	ctx context.Context,
 	db *sql.DB,
-	dialectType dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	version int64,
-) ([]*PlannedMigration, *Repository, error) {
-	return ex.planMigrationCommon(ctx, db, dialectType, m, dir, 0, version)
+) ([]*PlannedMigration, *MigrationRepository, error) {
+	return ex.planMigrationCommon(ctx, db, dialect, source, dir, 0, version)
 }
 
 // planMigrationCommon A common method to plan a migration.
 func (ex *MigrationExecutor) planMigrationCommon(
 	ctx context.Context,
 	db *sql.DB,
-	dialectType dialect.DialectType,
-	m Source,
-	dir Direction,
+	dialect dialect.Dialect,
+	source MigrationSource,
+	dir MigrationDirection,
 	max int,
 	version int64,
-) ([]*PlannedMigration, *Repository, error) {
-	rep, err := ex.getMigrationRepository(ctx, db, dialectType)
+) ([]*PlannedMigration, *MigrationRepository, error) {
+	rep, err := ex.getMigrationRepository(ctx, db, dialect)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	migrations, err := m.FindMigrations()
+	migrations, err := source.FindMigrations()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -285,11 +353,11 @@ func (ex *MigrationExecutor) planMigrationCommon(
 	// Add missing migrations up to the last run migration.
 	// This can happen for example when merges happened.
 	if len(existingMigrations) > 0 {
-		result = append(result, ToCatchup(migrations, existingMigrations, record)...)
+		result = append(result, toCatchup(migrations, existingMigrations, record)...)
 	}
 
 	// Figure out which migrations to apply
-	toApply := ToApply(migrations, record.Id, dir)
+	toApply := toApplyMigrations(migrations, record.Id, dir)
 	toApplyCount := len(toApply)
 
 	if version >= 0 {
@@ -335,8 +403,8 @@ func (ex *MigrationExecutor) planMigrationCommon(
 	return result, rep, nil
 }
 
-func (ex *MigrationExecutor) GetMigrationRecords(ctx context.Context, db *sql.DB, dialectType dialect.DialectType) ([]Record, error) {
-	rep, err := ex.getMigrationRepository(ctx, db, dialectType)
+func (ex *MigrationExecutor) GetMigrationRecords(ctx context.Context, db *sql.DB, dialect dialect.Dialect) ([]MigrationRecord, error) {
+	rep, err := ex.getMigrationRepository(ctx, db, dialect)
 	if err != nil {
 		return nil, err
 	}
@@ -349,14 +417,9 @@ func (ex *MigrationExecutor) GetMigrationRecords(ctx context.Context, db *sql.DB
 	return records, nil
 }
 
-func (ex *MigrationExecutor) getMigrationRepository(ctx context.Context, db *sql.DB, dialectType dialect.DialectType) (*Repository, error) {
-	d, ok := dialect.Dialects[dialectType]
-	if !ok {
-		return nil, fmt.Errorf("unknown Dialect: %s", dialectType)
-	}
-
+func (ex *MigrationExecutor) getMigrationRepository(ctx context.Context, db *sql.DB, dialect dialect.Dialect) (*MigrationRepository, error) {
 	// Create migration database map
-	rep := NewRepository(db, d, ex.SchemaName, ex.getTableName())
+	rep := NewMigrationRepository(db, dialect, ex.SchemaName, ex.TableName, ex.Logger)
 
 	if ex.CreateSchema && strings.TrimSpace(ex.SchemaName) != "" {
 		err := rep.CreateSchema(ctx)
@@ -375,7 +438,7 @@ func (ex *MigrationExecutor) getMigrationRepository(ctx context.Context, db *sql
 	return rep, nil
 }
 
-func ToCatchup(migrations, existingMigrations []*Migration, lastRun *Migration) []*PlannedMigration {
+func toCatchup(migrations, existingMigrations []*Migration, lastRun *Migration) []*PlannedMigration {
 	missing := make([]*PlannedMigration, 0)
 	for _, migration := range migrations {
 		found := false
@@ -396,8 +459,8 @@ func ToCatchup(migrations, existingMigrations []*Migration, lastRun *Migration) 
 	return missing
 }
 
-// Filter a slice of migrations into ones that should be applied.
-func ToApply(migrations []*Migration, current string, direction Direction) []*Migration {
+// toApplyMigrations Filter a slice of migrations into ones that should be applied.
+func toApplyMigrations(migrations []*Migration, current string, direction MigrationDirection) []*Migration {
 	index := -1
 	if current != "" {
 		for index < len(migrations)-1 {

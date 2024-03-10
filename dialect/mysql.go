@@ -1,7 +1,3 @@
-// Copyright 2012 James Cooper. All rights reserved.
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
-
 package dialect
 
 import (
@@ -11,7 +7,7 @@ import (
 
 var _ Dialect = (*MySQLDialect)(nil)
 
-// Implementation of Dialect for MySQL databases.
+// MySQLDialect Implementation of Dialect for MySQL databases.
 type MySQLDialect struct {
 	// engine is the storage engine to use "InnoDB" vs "MyISAM" for example
 	engine string

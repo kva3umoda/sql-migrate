@@ -9,17 +9,11 @@ import (
 	"time"
 
 	`github.com/kva3umoda/sql-migrate/dialect`
-	`github.com/kva3umoda/sql-migrate/logger`
-)
-
-const (
-	columnID        = "id"
-	columnAppliedAt = "applied_at"
 )
 
 type transactionKey struct{}
 
-type Record struct {
+type MigrationRecord struct {
 	Id        string
 	AppliedAt time.Time
 }
@@ -29,27 +23,27 @@ type SqlExecutor interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-type Repository struct {
+type MigrationRepository struct {
 	dialect    dialect.Dialect
 	db         *sql.DB
 	schemaName string
 	tableName  string
 
-	logger    logger.Logger
+	logger    Logger
 	logPrefix string
 }
 
-func NewRepository(db *sql.DB, dialect dialect.Dialect, schemaName, tableName string) *Repository {
-	return &Repository{
+func NewMigrationRepository(db *sql.DB, dialect dialect.Dialect, schemaName, tableName string, logger Logger) *MigrationRepository {
+	return &MigrationRepository{
 		db:         db,
 		dialect:    dialect,
 		schemaName: schemaName,
 		tableName:  tableName,
-		logger:     logger.DefaultLogger(),
+		logger:     logger,
 	}
 }
 
-func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, context.Context, error) {
+func (r *MigrationRepository) BeginTx(ctx context.Context) (*sql.Tx, context.Context, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, ctx, err
@@ -58,7 +52,7 @@ func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, context.Context, err
 	return tx, context.WithValue(ctx, transactionKey{}, tx), nil
 }
 
-func (r *Repository) CreateSchema(ctx context.Context) error {
+func (r *MigrationRepository) CreateSchema(ctx context.Context) error {
 	query := r.dialect.QueryCreateMigrateSchema(r.schemaName)
 
 	_, err := r.ExecContext(ctx, query)
@@ -69,7 +63,7 @@ func (r *Repository) CreateSchema(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) CreateTable(ctx context.Context) error {
+func (r *MigrationRepository) CreateTable(ctx context.Context) error {
 	query := r.dialect.QueryCreateMigrateTable(r.schemaName, r.tableName)
 
 	_, err := r.ExecContext(ctx, query)
@@ -80,22 +74,22 @@ func (r *Repository) CreateTable(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) SaveMigration(ctx context.Context, record Record) error {
+func (r *MigrationRepository) SaveMigration(ctx context.Context, record MigrationRecord) error {
 	query := r.dialect.QueryInsertMigrate(r.schemaName, r.tableName)
 	_, err := r.ExecContext(ctx, query, record.Id, record.AppliedAt)
 
 	return err
 }
 
-func (r *Repository) DeleteMigration(ctx context.Context, id string) error {
+func (r *MigrationRepository) DeleteMigration(ctx context.Context, id string) error {
 	query := r.dialect.QueryDeleteMigrate(r.schemaName, r.tableName)
 	_, err := r.ExecContext(ctx, query, id)
 
 	return err
 }
 
-func (r *Repository) ListMigration(ctx context.Context) ([]Record, error) {
-	records := make([]Record, 0, 10)
+func (r *MigrationRepository) ListMigration(ctx context.Context) ([]MigrationRecord, error) {
+	records := make([]MigrationRecord, 0, 10)
 	query := r.dialect.QuerySelectMigrate(r.schemaName, r.tableName)
 
 	rows, err := r.QueryContext(ctx, query)
@@ -105,7 +99,7 @@ func (r *Repository) ListMigration(ctx context.Context) ([]Record, error) {
 
 	defer rows.Close()
 
-	var rec Record
+	var rec MigrationRecord
 
 	for rows.Next() {
 
@@ -122,7 +116,7 @@ func (r *Repository) ListMigration(ctx context.Context) ([]Record, error) {
 
 // Exec runs an arbitrary SQL statement.  args represent the bind parameters.
 // This is equivalent to running:  Exec() using database/sql
-func (r *Repository) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+func (r *MigrationRepository) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	defer r.trace(time.Now(), query, args...)
 
 	res, err := r.use(ctx).ExecContext(ctx, query, args...)
@@ -133,7 +127,9 @@ func (r *Repository) ExecContext(ctx context.Context, query string, args ...any)
 	return res, nil
 }
 
-func (r *Repository) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (r *MigrationRepository) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	defer r.trace(time.Now(), query, args...)
+
 	rows, err := r.use(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -143,7 +139,7 @@ func (r *Repository) QueryContext(ctx context.Context, query string, args ...any
 }
 
 // extract - extract transaction from context.
-func (r *Repository) use(ctx context.Context) SqlExecutor {
+func (r *MigrationRepository) use(ctx context.Context) SqlExecutor {
 	tx, ok := ctx.Value(transactionKey{}).(*sql.Tx)
 	if !ok {
 		return r.db
@@ -152,9 +148,10 @@ func (r *Repository) use(ctx context.Context) SqlExecutor {
 	return tx
 }
 
-func (r *Repository) trace(started time.Time, query string, args ...any) {
+func (r *MigrationRepository) trace(started time.Time, query string, args ...any) {
 	var margs = argsString(args...)
-	r.logger.Printf("%s%s [%s] (%v)", r.logPrefix, query, margs, (time.Now().Sub(started)))
+
+	r.logger.Tracef("%s%s [%s] (%v)", r.logPrefix, query, margs, (time.Now().Sub(started)))
 }
 
 func argsString(args ...any) string {
