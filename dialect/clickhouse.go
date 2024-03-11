@@ -26,7 +26,7 @@ func NewClickhouseDialect(clusterName string, engine ClickhouseEngine) *Clickhou
 }
 
 func (c *ClickhouseDialect) QueryCreateMigrateSchema(databaseName string) string {
-	return fmt.Sprintf("CREATAE DATABASE IF NOT EXISTS %s;", databaseName)
+	return fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s;", databaseName)
 }
 
 func (c *ClickhouseDialect) QueryCreateMigrateTable(database, tableName string) string {
