@@ -77,7 +77,7 @@ func GetDialect(name DialectName) (dialect.Dialect, error) {
 	case Snowflake:
 		return dialect.NewSnowflakeDialect(), nil
 	case ClickHouse:
-		return dialect.NewClickhouseDialect("", "TinyLog"), nil
+		return dialect.NewClickhouseDialect("", dialect.TinyLogEngine), nil
 	}
 
 	return nil, fmt.Errorf("unknown dialect: %s", name)
