@@ -15,7 +15,7 @@ Key features:
 
 To install the library and command line program, use the following:
 
-	go get -v github.com/rubenv/sql-migrate/...
+	go get -v github.com/kva3umoda/sql-migrate/...
 
 # Command-line tool
 
@@ -92,7 +92,7 @@ See https://github.com/go-sql-driver/mysql#parsetime for more information.
 
 Import sql-migrate into your application:
 
-	import "github.com/rubenv/sql-migrate"
+	import "github.com/kva3umoda/sql-migrate"
 
 Set up a source of migrations, this can be from memory, from a set of files or from bindata (more on that later):
 

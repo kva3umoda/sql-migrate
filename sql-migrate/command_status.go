@@ -9,7 +9,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 
-	migrate "github.com/rubenv/sql-migrate"
+	migrate "github.com/kva3umoda/sql-migrate"
 )
 
 type StatusCommand struct{}
@@ -48,16 +48,21 @@ func (c *StatusCommand) Run(args []string) int {
 		return 1
 	}
 
-	db, dialect, err := GetConnection(env)
+	db, dialectName, err := GetConnection(env)
 	if err != nil {
 		ui.Error(err.Error())
 		return 1
 	}
 	defer db.Close()
 
-	source := migrate.FileMigrationSource{
-		Dir: env.Dir,
+	source := migrate.NewFileMigrationSource(env.Dir)
+
+	dialect, err := migrate.GetDialect(migrate.DialectName(dialectName))
+	if err != nil {
+		ui.Error(err.Error())
+		return 1
 	}
+
 	migrations, err := source.FindMigrations()
 	if err != nil {
 		ui.Error(err.Error())

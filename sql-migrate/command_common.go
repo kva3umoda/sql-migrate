@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	migrate "github.com/rubenv/sql-migrate"
+	migrate "github.com/kva3umoda/sql-migrate"
 )
 
 func ApplyMigrations(dir migrate.MigrationDirection, dryrun bool, limit int, version int64) error {
@@ -12,14 +12,17 @@ func ApplyMigrations(dir migrate.MigrationDirection, dryrun bool, limit int, ver
 		return fmt.Errorf("Could not parse config: %w", err)
 	}
 
-	db, dialect, err := GetConnection(env)
+	db, dialectName, err := GetConnection(env)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	source := migrate.FileMigrationSource{
-		Dir: env.Dir,
+	source := migrate.NewFileMigrationSource(env.Dir)
+
+	dialect, err := migrate.GetDialect(migrate.DialectName(dialectName))
+	if err != nil {
+		return err
 	}
 
 	if dryrun {
