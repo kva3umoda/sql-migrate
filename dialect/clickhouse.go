@@ -1,8 +1,8 @@
 package dialect
 
 import (
-	`fmt`
-	`strings`
+	"fmt"
+	"strings"
 )
 
 var _ Dialect = (*ClickhouseDialect)(nil)
@@ -59,10 +59,14 @@ func (c *ClickhouseDialect) QueryInsertMigrate(database, tableName string) strin
 		c.quotedTableForQuery(database, tableName))
 }
 
-func (c *ClickhouseDialect) quotedTableForQuery(database string, table string) string {
-	if strings.TrimSpace(database) == "" {
-		return table
+func (c *ClickhouseDialect) quoteField(f string) string {
+	return `"` + f + `"`
+}
+
+func (c *ClickhouseDialect) quotedTableForQuery(schema string, table string) string {
+	if strings.TrimSpace(schema) == "" {
+		return c.quoteField(table)
 	}
 
-	return database + "." + table
+	return c.quoteField(schema) + "." + c.quoteField(table)
 }

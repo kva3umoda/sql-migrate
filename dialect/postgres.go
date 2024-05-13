@@ -56,5 +56,5 @@ func (d *PostgresDialect) quotedTableForQuery(schema string, table string) strin
 		return d.quoteField(table)
 	}
 
-	return schema + "." + d.quoteField(table)
+	return d.quoteField(schema) + "." + d.quoteField(table)
 }
