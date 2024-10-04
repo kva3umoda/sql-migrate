@@ -17,7 +17,7 @@ func NewOracleDialect() *OracleDialect {
 func (d *OracleDialect) QueryCreateMigrateSchema(schemaName string) string {
 	return fmt.Sprintf(
 		"CREATE SCHEMA %s;",
-		schemaName)
+		d.quoteField(schemaName))
 }
 
 func (d *OracleDialect) QueryCreateMigrateTable(schemaName, tableName string) string {

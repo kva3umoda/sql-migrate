@@ -18,7 +18,7 @@ func NewPostgresDialect() *PostgresDialect {
 func (d *PostgresDialect) QueryCreateMigrateSchema(schemaName string) string {
 	return fmt.Sprintf(
 		"CREATE SCHEMA IF NOT EXISTS %s;",
-		schemaName)
+		d.quoteField(schemaName))
 }
 
 func (d *PostgresDialect) QueryCreateMigrateTable(schemaName, tableName string) string {

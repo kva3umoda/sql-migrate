@@ -25,7 +25,7 @@ func NewMySQLDialect(engine, encoding string) *MySQLDialect {
 func (d *MySQLDialect) QueryCreateMigrateSchema(schemaName string) string {
 	return fmt.Sprintf(
 		"CREATE SCHEMA IF NOT EXISTS %s;",
-		schemaName)
+		d.quoteField(schemaName))
 }
 
 func (d *MySQLDialect) QueryCreateMigrateTable(schemaName, tableName string) string {

@@ -17,7 +17,7 @@ func NewSnowflakeDialect() *SnowflakeDialect {
 func (d *SnowflakeDialect) QueryCreateMigrateSchema(schemaName string) string {
 	return fmt.Sprintf(
 		"CREATE SCHEMA IF NOT EXISTS %s;",
-		schemaName)
+		d.quoteField(schemaName))
 }
 
 func (d *SnowflakeDialect) QueryCreateMigrateTable(schemaName, tableName string) string {
